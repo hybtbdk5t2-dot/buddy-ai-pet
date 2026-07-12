@@ -17,7 +17,8 @@ export class GeminiProvider implements AIProvider {
       .filter((m) => m.role !== "system")
       .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
 
-    const url = `${this.baseUrl}/models/${this.model}:generateContent?key=${this.apiKey}`;
+    const model = options?.model || this.model;
+    const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

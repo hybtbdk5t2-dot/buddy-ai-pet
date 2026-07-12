@@ -25,7 +25,7 @@ export class ClaudeProvider implements AIProvider {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: this.model,
+        model: options?.model || this.model,
         max_tokens: options?.maxTokens ?? 400,
         temperature: options?.temperature ?? 0.8,
         ...(system ? { system } : {}),

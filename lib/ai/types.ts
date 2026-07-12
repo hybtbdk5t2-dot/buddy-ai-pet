@@ -11,6 +11,8 @@ export type AIMessage = {
 export type GenerateOptions = {
   temperature?: number;
   maxTokens?: number;
+  /** このリクエストだけモデルを上書きする（ルーターのtier→モデル切替で使用） */
+  model?: string;
 };
 
 export interface AIProvider {

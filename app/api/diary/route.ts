@@ -18,10 +18,12 @@ export async function POST(request: Request) {
     .filter((m) => m.createdAt.slice(0, 10) === today && m.role === "user")
     .map((m) => m.content);
 
+  const userId = request.headers.get("x-buddy-user") || "default";
   const providerId = activeProviderId();
   let text: string | null = null;
   if (providerId !== "demo") {
-    const result = await generateText(buildDiaryMessages(pet));
+    // 日記は「深い」生成なので heavy 階層で
+    const result = await generateText(buildDiaryMessages(pet), { tier: "heavy", userId });
     text = result?.text ?? null;
   }
   const mode = text ? providerId : providerId === "demo" ? "demo" : "demo-fallback";

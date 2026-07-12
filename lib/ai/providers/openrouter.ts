@@ -17,6 +17,6 @@ export class OpenRouterProvider implements AIProvider {
     const extraHeaders: Record<string, string> = {};
     if (process.env.OPENROUTER_SITE_URL) extraHeaders["HTTP-Referer"] = process.env.OPENROUTER_SITE_URL;
     if (process.env.OPENROUTER_APP_NAME) extraHeaders["X-Title"] = process.env.OPENROUTER_APP_NAME;
-    return chatCompletions({ baseUrl: this.baseUrl, apiKey: this.apiKey, model: this.model, messages, extraHeaders, options });
+    return chatCompletions({ baseUrl: this.baseUrl, apiKey: this.apiKey, model: options?.model || this.model, messages, extraHeaders, options });
   }
 }

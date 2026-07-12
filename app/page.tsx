@@ -39,6 +39,7 @@ const MODE_LABEL: Record<string, string> = {
   claude: "Claudeモード",
   openrouter: "OpenRouterモード",
   local: "ローカルAIモード",
+  template: "定型応答（AI節約中）",
   demo: "デモモード（AI未設定）",
   "demo-fallback": "接続に失敗したため、いまはデモモードで話しています",
 };

@@ -1,10 +1,12 @@
+import { checkBudget, estimateTokens, recordUsage } from "./budget";
 import { cacheKey, getCached, setCached } from "./cache";
 import { ClaudeProvider } from "./providers/claude";
 import { GeminiProvider } from "./providers/gemini";
 import { LocalProvider } from "./providers/local";
 import { OpenAIProvider } from "./providers/openai";
 import { OpenRouterProvider } from "./providers/openrouter";
-import type { AIMessage, AIProvider, GenerateOptions } from "./types";
+import { modelForTier, type Tier } from "./router";
+import type { AIMessage, AIProvider } from "./types";
 
 export type { AIMessage } from "./types";
 
@@ -17,61 +19,81 @@ const REGISTRY: Record<string, () => AIProvider> = {
   local: () => new LocalProvider(),
 };
 
-// 自動選択のときに試す優先順位
-const AUTO_ORDER = ["openai", "gemini", "claude", "openrouter", "local"];
+// 自動選択・フォールバックの既定優先順位（#10: Gemini → OpenRouter → Local …）。
+const DEFAULT_ORDER = ["gemini", "openrouter", "openai", "claude", "local"];
 
 /**
- * 環境変数から使用プロバイダーを決定する。
- * - AI_PROVIDER で明示指定（openai/gemini/claude/openrouter/local）
- * - 未指定/auto のときは、設定済みのものを優先順で自動選択
- * - どれも未設定なら null（＝デモ／オフライン。ローカルのフォールバック応答を使う）
+ * 使用するプロバイダーの「試行順チェーン」を環境変数から決める。
+ * - AI_PROVIDER_ORDER="gemini,openrouter,local" で明示（多段フォールバック）
+ * - AI_PROVIDER="openai" で単一指定
+ * - どちらも無ければ DEFAULT_ORDER のうち設定済みのものを自動採用
+ * - demo 指定・未設定なら空（＝ローカル定型応答）
  */
-export function resolveProvider(): AIProvider | null {
-  const requested = (process.env.AI_PROVIDER || "auto").toLowerCase();
+export function providerChain(): AIProvider[] {
+  const order = process.env.AI_PROVIDER_ORDER;
+  const single = (process.env.AI_PROVIDER || "").toLowerCase();
 
-  if (requested !== "auto" && requested !== "demo") {
-    const factory = REGISTRY[requested];
-    if (!factory) return null;
-    const provider = factory();
-    return provider.isConfigured() ? provider : null;
-  }
-  if (requested === "demo") return null;
+  let ids: string[];
+  if (order) ids = order.split(",").map((s) => s.trim().toLowerCase());
+  else if (single && single !== "auto" && single !== "demo") ids = [single];
+  else if (single === "demo") ids = [];
+  else ids = DEFAULT_ORDER;
 
-  for (const id of AUTO_ORDER) {
-    const provider = REGISTRY[id]();
-    if (provider.isConfigured()) return provider;
-  }
-  return null;
+  return ids
+    .map((id) => REGISTRY[id])
+    .filter(Boolean)
+    .map((factory) => factory())
+    .filter((p) => p.isConfigured());
 }
 
-/** UI表示・モード判定用のプロバイダーID（未設定時は "demo"） */
+/** UI表示・モード判定用：先頭（優先）プロバイダーのID。無ければ "demo"。 */
 export function activeProviderId(): string {
-  return resolveProvider()?.id ?? "demo";
+  return providerChain()[0]?.id ?? "demo";
 }
+
+export type GenerateArgs = {
+  tier?: Tier;
+  userId?: string;
+  temperature?: number;
+  maxTokens?: number;
+};
 
 /**
- * メッセージ列から応答テキストを生成する。
- * - プロバイダー未設定なら null（呼び出し側でローカルのフォールバックを使う）
- * - 生成失敗（例外）でも null を返す（アプリは落とさない）
- * - 同一入力はキャッシュして無駄なAPIコールを避ける
+ * メッセージ列から応答を生成する。多段フォールバック・キャッシュ・予算管理を内包。
+ * - プロバイダー未設定 / 予算超過 / 全プロバイダー失敗 なら null
+ *   （呼び出し側はローカル定型応答へ）。
  */
 export async function generateText(
   messages: AIMessage[],
-  options?: GenerateOptions,
+  args: GenerateArgs = {},
 ): Promise<{ text: string; providerId: string } | null> {
-  const provider = resolveProvider();
-  if (!provider) return null;
+  const chain = providerChain();
+  if (chain.length === 0) return null;
 
-  const key = cacheKey([provider.id, provider.model, JSON.stringify(messages)]);
-  const cached = getCached(key);
-  if (cached) return { text: cached, providerId: provider.id };
-
-  try {
-    const text = await provider.generate(messages, options);
-    setCached(key, text);
-    return { text, providerId: provider.id };
-  } catch (error) {
-    console.error(`[ai] ${provider.id} の生成に失敗しました:`, error);
+  const userId = args.userId || "default";
+  const budget = checkBudget(userId);
+  if (!budget.allowed) {
+    console.warn(`[ai] 予算超過のため定型応答にフォールバック: ${budget.reason}`);
     return null;
   }
+
+  const model = args.tier ? modelForTier(args.tier) : null;
+  const opts = { temperature: args.temperature, maxTokens: args.maxTokens, ...(model ? { model } : {}) };
+
+  for (const provider of chain) {
+    const key = cacheKey([provider.id, model || provider.model, JSON.stringify(messages)]);
+    const cached = getCached(key);
+    if (cached) return { text: cached, providerId: provider.id };
+
+    try {
+      const text = await provider.generate(messages, opts);
+      setCached(key, text);
+      const promptChars = messages.reduce((n, m) => n + m.content.length, 0);
+      recordUsage(userId, estimateTokens(text) + estimateTokens("x".repeat(promptChars)));
+      return { text, providerId: provider.id };
+    } catch (error) {
+      console.error(`[ai] ${provider.id} 失敗、次のプロバイダーへフォールバック:`, error);
+    }
+  }
+  return null;
 }

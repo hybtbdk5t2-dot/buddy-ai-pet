@@ -13,6 +13,6 @@ export class OpenAIProvider implements AIProvider {
   }
 
   generate(messages: AIMessage[], options?: GenerateOptions): Promise<string> {
-    return chatCompletions({ baseUrl: this.baseUrl, apiKey: this.apiKey, model: this.model, messages, options });
+    return chatCompletions({ baseUrl: this.baseUrl, apiKey: this.apiKey, model: options?.model || this.model, messages, options });
   }
 }
