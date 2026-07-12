@@ -7,6 +7,7 @@ export type Memory = {
   emotion: string;
   importance: number;
   occurredAt: string;
+  pinned?: boolean;
 };
 
 export type DiaryEntry = {
@@ -38,6 +39,10 @@ export type PetState = {
   messages: Message[];
   memories: Memory[];
   diary: DiaryEntry[];
+  // 長期利用向けのメタ情報（既存データにない場合はロード時に補完）
+  bornAt?: string;        // Buddyが生まれた日（ISO）
+  lastVisitDate?: string; // 最後に会話した日（YYYY-MM-DD）
+  streak?: number;        // 連続来訪日数
 };
 
 export type ChatResult = {

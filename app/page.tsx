@@ -2,6 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PetAvatar } from "@/components/PetAvatar";
+import {
+  computeVisit,
+  evolutionStage,
+  proactiveGreeting,
+  sortMemories,
+  todayKey,
+} from "@/lib/engagement";
 import type { ChatResult, DiaryEntry, Memory, Message, PetState } from "@/lib/types";
 
 const STORAGE_KEY = "buddy-ai-pet-v01";
@@ -20,6 +27,12 @@ const initialState: PetState = {
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const uid = () => crypto.randomUUID();
 
+const TRAIT_META: Record<string, [string, string]> = {
+  music: ["🎵", "音楽"], movement: ["🏃", "運動"], knowledge: ["📚", "知識"], kindness: ["💗", "優しさ"], curiosity: ["✨", "好奇心"],
+};
+
+type LevelUp = { level: number; title: string; evolved: boolean };
+
 export default function Home() {
   const [pet, setPet] = useState<PetState>(initialState);
   const [input, setInput] = useState("");
@@ -29,24 +42,66 @@ export default function Home() {
   const [mode, setMode] = useState<"demo" | "openai" | "demo-fallback" | null>(null);
   const [naming, setNaming] = useState<"hidden" | "input" | "born">("hidden");
   const [nameInput, setNameInput] = useState("");
+  const [heartBurst, setHeartBurst] = useState(0);
+  const [levelUp, setLevelUp] = useState<LevelUp | null>(null);
+  const [editing, setEditing] = useState<{ id: string; title: string; summary: string } | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const prevLevel = useRef(initialState.level);
 
+  // 読み込み＋長期利用向けメタ情報の補完＋再訪あいさつ
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) setPet(JSON.parse(saved));
-    else setNaming("input");
+    if (!saved) { setNaming("input"); setHydrated(true); return; }
+    let loaded: PetState;
+    try { loaded = JSON.parse(saved) as PetState; } catch { setNaming("input"); setHydrated(true); return; }
+
+    const today = todayKey();
+    const visit = computeVisit(loaded, today);
+    const withMeta: PetState = {
+      ...loaded,
+      bornAt: loaded.bornAt ?? loaded.messages?.[0]?.createdAt ?? new Date().toISOString(),
+      streak: visit.streak,
+      lastVisitDate: today,
+    };
+    if (visit.isNewDay && !visit.firstEver) {
+      const greet: Message = { id: uid(), role: "assistant", content: proactiveGreeting(loaded, visit), createdAt: new Date().toISOString() };
+      withMeta.messages = [...loaded.messages, greet];
+      withMeta.mood = visit.daysAway >= 4 ? "lonely" : "happy";
+    }
+    prevLevel.current = withMeta.level; // ロードによるレベル変化を「レベルアップ」と誤検知しない
+    setPet(withMeta);
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (naming === "input") return;
+    if (!hydrated || naming === "input") return; // 読み込み完了までは保存しない（初期状態での上書き防止）
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pet));
-  }, [pet, naming]);
+  }, [pet, naming, hydrated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [pet.messages.length]);
 
+  // レベルアップ／進化の検知（読み込み完了後のみ。読み込みによる変化は演出しない）
+  useEffect(() => {
+    if (!hydrated) return;
+    if (pet.level > prevLevel.current) {
+      const before = evolutionStage(prevLevel.current);
+      const after = evolutionStage(pet.level);
+      setLevelUp({ level: pet.level, title: after.title, evolved: after.stage > before.stage });
+    }
+    prevLevel.current = pet.level;
+  }, [pet.level, hydrated]);
+
   const progress = useMemo(() => pet.experience % 100, [pet.experience]);
+  const stage = useMemo(() => evolutionStage(pet.level), [pet.level]);
+  const sortedMemories = useMemo(() => sortMemories(pet.memories), [pet.memories]);
+  const daysTogether = useMemo(() => {
+    if (!pet.bornAt) return 1;
+    return Math.max(1, Math.floor((Date.now() - new Date(pet.bornAt).getTime()) / 86400000) + 1);
+  }, [pet.bornAt]);
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
@@ -63,6 +118,7 @@ export default function Home() {
       if (!response.ok) throw new Error("返答を取得できませんでした");
       const result = (await response.json()) as ChatResult & { mode?: "demo" | "openai" | "demo-fallback" };
       setMode(result.mode || null);
+      if (result.affectionDelta > 0) setHeartBurst((n) => n + 1);
 
       setPet((current) => {
         const totalExp = current.experience + result.experienceDelta;
@@ -93,7 +149,7 @@ export default function Home() {
             curiosity: clamp(current.personality.curiosity + (p.curiosity || 0)),
           },
           messages: [...current.messages, assistantMessage],
-          memories: memory ? [memory, ...current.memories].slice(0, 50) : current.memories,
+          memories: memory ? [memory, ...current.memories].slice(0, 100) : current.memories,
           diary,
         };
       });
@@ -107,11 +163,16 @@ export default function Home() {
   function completeNaming(event: FormEvent) {
     event.preventDefault();
     const name = nameInput.trim().slice(0, 12) || "Buddy";
+    const now = new Date().toISOString();
     setPet((current) => ({
       ...current,
       name,
-      messages: [{ id: "welcome", role: "assistant", content: `${name}……うん、いい名前。今日から${name}として、君と一緒に育っていくよ。まずは今日のことを聞かせて？`, createdAt: new Date().toISOString() }],
+      bornAt: now,
+      streak: 1,
+      lastVisitDate: todayKey(),
+      messages: [{ id: "welcome", role: "assistant", content: `${name}……うん、いい名前。今日から${name}として、君と一緒に育っていくよ。まずは今日のことを聞かせて？`, createdAt: now }],
     }));
+    prevLevel.current = 1;
     setNaming("born");
     setTimeout(() => setNaming("hidden"), 2200);
   }
@@ -139,13 +200,54 @@ export default function Home() {
     }
   }
 
-  function reset() {
-    if (confirm("Buddyとの思い出をすべてリセットしますか？")) {
-      localStorage.removeItem(STORAGE_KEY);
-      setPet(initialState);
-      setNameInput("");
-      setNaming("input");
-    }
+  // ---- 思い出の管理 ----
+  function togglePin(id: string) {
+    setPet((c) => ({ ...c, memories: c.memories.map((m) => (m.id === id ? { ...m, pinned: !m.pinned } : m)) }));
+  }
+  function deleteMemory(id: string) {
+    if (!confirm("この思い出を消しますか？")) return;
+    setPet((c) => ({ ...c, memories: c.memories.filter((m) => m.id !== id) }));
+    if (editing?.id === id) setEditing(null);
+  }
+  function saveEdit() {
+    if (!editing) return;
+    const title = editing.title.trim().slice(0, 40) || "無題の思い出";
+    const summary = editing.summary.trim().slice(0, 300);
+    setPet((c) => ({ ...c, memories: c.memories.map((m) => (m.id === editing.id ? { ...m, title, summary } : m)) }));
+    setEditing(null);
+  }
+
+  // ---- データの保全・移行 ----
+  function exportData() {
+    const blob = new Blob([JSON.stringify(pet, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `buddy-${pet.name}-${todayKey()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function importData(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result)) as PetState;
+        if (!data || typeof data.name !== "string" || !data.personality || !Array.isArray(data.messages)) {
+          throw new Error("形式が違います");
+        }
+        if (!confirm(`「${data.name}」のバックアップを読み込みます。いまのデータは置き換わります。よろしいですか？`)) return;
+        prevLevel.current = data.level;
+        setPet({ ...data, lastVisitDate: todayKey(), streak: data.streak ?? 1 });
+        setNaming("hidden");
+        setTab("chat");
+      } catch {
+        alert("このファイルは読み込めませんでした。Buddyのバックアップ（.json）を選んでください。");
+      }
+    };
+    reader.readAsText(file);
   }
 
   return (
@@ -169,20 +271,48 @@ export default function Home() {
           )}
         </div>
       )}
+
+      {levelUp && (
+        <div className="levelup-overlay" onClick={() => setLevelUp(null)}>
+          <div className="levelup-card">
+            <div className="levelup-burst">{levelUp.evolved ? "🌟" : "🎉"}</div>
+            <div className="eyebrow">{levelUp.evolved ? "しんか！" : "レベルアップ！"}</div>
+            <h2>Lv.{levelUp.level}</h2>
+            <p>{levelUp.evolved ? `${pet.name}は「${levelUp.title}」に成長した！` : `${pet.name}がまた少し大きくなった。`}</p>
+            <button onClick={() => setLevelUp(null)}>やったね</button>
+          </div>
+        </div>
+      )}
+
       <section className="app-card">
         <header className="topbar">
-          <div><div className="eyebrow">AI PET</div><h1>{pet.name}</h1></div>
-          <div className="level-box"><strong>Lv.{pet.level}</strong><span>♥ {pet.affection}</span></div>
+          <div>
+            <div className="eyebrow">AI PET · {stage.title}</div>
+            <h1>{pet.name}</h1>
+          </div>
+          <div className="level-box">
+            {(pet.streak ?? 0) >= 2 && <span className="streak" title="連続来訪">🔥 {pet.streak}</span>}
+            <strong>Lv.{pet.level}</strong>
+            <span className="heart">♥ {pet.affection}</span>
+          </div>
         </header>
 
         <div className="progress" aria-label="経験値"><div style={{ width: `${progress}%` }} /></div>
 
         <section className="room">
-          <div className="window"><span>☁</span><span>✦</span></div>
-          <div className="plant">♧</div>
-          <PetAvatar mood={pet.mood} level={pet.level} />
+          <div className="motes"><i /><i /><i /><i /></div>
+          <div className="window"><i className="sun" /><i className="cloud" /></div>
+          <div className="plant">🪴</div>
           <div className="rug" />
-          <div className="speech">{loading ? "考え中……" : pet.messages.filter((m) => m.role === "assistant").at(-1)?.content}</div>
+          <PetAvatar mood={pet.mood} level={pet.level} />
+          {heartBurst > 0 && (
+            <div className="love-burst" key={heartBurst}><span>♥</span><span>♥</span><span>♥</span></div>
+          )}
+          <div className={`speech ${loading ? "thinking" : ""}`}>
+            {loading
+              ? <span className="dots"><span>●</span><span>●</span><span>●</span></span>
+              : pet.messages.filter((m) => m.role === "assistant").at(-1)?.content}
+          </div>
         </section>
 
         <nav className="tabs">
@@ -204,16 +334,77 @@ export default function Home() {
             <p className="mode-note">{mode === "openai" ? "OpenAIモード" : mode === "demo-fallback" ? "接続に失敗したため、いまはデモモードで話しています" : "APIキー未設定時はデモモード"}</p>
           </>}
 
-          {tab === "memories" && <div className="cards"><h2>思い出の部屋</h2>{pet.memories.length === 0 ? <Empty text="大切な出来事を話すと、ここに残るよ。" /> : pet.memories.map((m) => <article key={m.id}><small>{new Date(m.occurredAt).toLocaleDateString('ja-JP')} · 重要度 {m.importance}</small><h3>{m.title}</h3><p>{m.summary}</p></article>)}</div>}
+          {tab === "memories" && <div className="cards">
+            <h2>思い出の部屋</h2>
+            {pet.memories.length === 0 ? <Empty emoji="🌱" text="大切な出来事を話すと、ここに残るよ。" /> : sortedMemories.map((m) => (
+              <article key={m.id} className={m.pinned ? "pinned" : ""}>
+                {editing?.id === m.id ? (
+                  <div className="mem-edit">
+                    <input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} maxLength={40} placeholder="タイトル" />
+                    <textarea value={editing.summary} onChange={(e) => setEditing({ ...editing, summary: e.target.value })} maxLength={300} rows={3} placeholder="どんな出来事？" />
+                    <div className="mem-actions">
+                      <button className="mem-save" onClick={saveEdit}>保存</button>
+                      <button className="mem-cancel" onClick={() => setEditing(null)}>やめる</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <small>
+                      {new Date(m.occurredAt).toLocaleDateString('ja-JP')} · 重要度 {m.importance}
+                      {m.emotion && <span className="mem-emotion">{m.emotion}</span>}
+                    </small>
+                    <h3>{m.pinned && <span className="pin-mark">★</span>}{m.title}</h3>
+                    <p>{m.summary}</p>
+                    <div className="mem-actions">
+                      <button onClick={() => togglePin(m.id)}>{m.pinned ? "★ 固定中" : "☆ お気に入り"}</button>
+                      <button onClick={() => setEditing({ id: m.id, title: m.title, summary: m.summary })}>編集</button>
+                      <button className="mem-del" onClick={() => deleteMemory(m.id)}>削除</button>
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>}
+
           {tab === "diary" && <div className="cards">
             <div className="cards-head"><h2>{pet.name}の日記</h2><button className="diary-write" onClick={writeDiary} disabled={diaryLoading}>{diaryLoading ? "書いている……" : "今日の日記を書いてもらう"}</button></div>
-            {pet.diary.length === 0 ? <Empty text={`今日の会話から、${pet.name}が日記を書くよ。`} /> : pet.diary.map((d) => <article key={d.id}><small>{d.date}</small><p className="diary-body">{d.body}</p></article>)}
+            {pet.diary.length === 0 ? <Empty emoji="📖" text={`今日の会話から、${pet.name}が日記を書くよ。`} /> : pet.diary.map((d) => <article key={d.id}><small>{d.date}</small><p className="diary-body">{d.body}</p></article>)}
           </div>}
-          {tab === "status" && <div className="status"><h2>育っている個性</h2>{Object.entries(pet.personality).map(([key,value]) => <div className="stat" key={key}><span>{({music:'音楽',movement:'運動',knowledge:'知識',kindness:'優しさ',curiosity:'好奇心'} as Record<string,string>)[key]}</span><div><i style={{width:`${value}%`}} /></div><b>{value}</b></div>)}<button className="reset" onClick={reset}>データをリセット</button></div>}
+
+          {tab === "status" && <div className="status">
+            <div className="evo-card">
+              <div className="evo-stage">{"●".repeat(stage.stage)}{"○".repeat(5 - stage.stage)}</div>
+              <div className="evo-title">{stage.title}</div>
+              <div className="evo-sub">{stage.next ? `あと Lv.${stage.next} でつぎの段階へ` : "最終段階に到達"}</div>
+              <div className="evo-meta">
+                <span>🔥 {pet.streak ?? 1}日連続</span>
+                <span>🎂 一緒に {daysTogether} 日目</span>
+              </div>
+            </div>
+
+            <h2>育っている個性</h2>
+            {Object.entries(pet.personality).map(([key, value]) => {
+              const meta = TRAIT_META[key];
+              return <div className="stat" key={key}><span className="stat-label">{meta[0]} {meta[1]}</span><div className="bar"><i style={{ width: `${value}%` }} /></div><b>{value}</b></div>;
+            })}
+            <p className="trait-note">話す内容にあわせて、個性は伸びたり少し下がったりします。</p>
+
+            <div className="data-tools">
+              <h3>データの保全</h3>
+              <p>思い出はこの端末に保存されます。ときどき書き出して、大切に残しておきましょう。</p>
+              <div className="data-buttons">
+                <button className="data-export" onClick={exportData}>⬇ バックアップを書き出す</button>
+                <button className="data-import" onClick={() => fileRef.current?.click()}>⬆ バックアップから復元</button>
+              </div>
+              <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importData} />
+            </div>
+          </div>}
         </section>
       </section>
     </main>
   );
 }
 
-function Empty({ text }: { text: string }) { return <div className="empty">✦<p>{text}</p></div>; }
+function Empty({ text, emoji = "✦" }: { text: string; emoji?: string }) {
+  return <div className="empty"><div className="emoji">{emoji}</div><p>{text}</p></div>;
+}
