@@ -25,16 +25,24 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<"chat" | "memories" | "diary" | "status">("chat");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"demo" | "openai" | null>(null);
+  const [diaryLoading, setDiaryLoading] = useState(false);
+  const [mode, setMode] = useState<"demo" | "openai" | "demo-fallback" | null>(null);
+  const [naming, setNaming] = useState<"hidden" | "input" | "born">("hidden");
+  const [nameInput, setNameInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) setPet(JSON.parse(saved));
+    else setNaming("input");
   }, []);
 
   useEffect(() => {
+    if (naming === "input") return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pet));
+  }, [pet, naming]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [pet.messages.length]);
 
@@ -53,7 +61,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, pet: nextPet }) });
       if (!response.ok) throw new Error("返答を取得できませんでした");
-      const result = (await response.json()) as ChatResult & { mode?: "demo" | "openai" };
+      const result = (await response.json()) as ChatResult & { mode?: "demo" | "openai" | "demo-fallback" };
       setMode(result.mode || null);
 
       setPet((current) => {
@@ -96,12 +104,71 @@ export default function Home() {
     }
   }
 
+  function completeNaming(event: FormEvent) {
+    event.preventDefault();
+    const name = nameInput.trim().slice(0, 12) || "Buddy";
+    setPet((current) => ({
+      ...current,
+      name,
+      messages: [{ id: "welcome", role: "assistant", content: `${name}……うん、いい名前。今日から${name}として、君と一緒に育っていくよ。まずは今日のことを聞かせて？`, createdAt: new Date().toISOString() }],
+    }));
+    setNaming("born");
+    setTimeout(() => setNaming("hidden"), 2200);
+  }
+
+  async function writeDiary() {
+    if (diaryLoading) return;
+    setDiaryLoading(true);
+    try {
+      const response = await fetch("/api/diary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pet }) });
+      if (!response.ok) throw new Error("日記を取得できませんでした");
+      const result = (await response.json()) as { body: string; mode: "demo" | "openai" | "demo-fallback" };
+      setMode(result.mode);
+      setPet((current) => {
+        const today = new Date().toISOString().slice(0, 10);
+        const existing = current.diary.find((d) => d.date === today);
+        const diary: DiaryEntry[] = existing
+          ? current.diary.map((d) => (d.id === existing.id ? { ...d, body: result.body } : d))
+          : [{ id: uid(), date: today, body: result.body }, ...current.diary];
+        return { ...current, diary };
+      });
+    } catch {
+      alert("日記をうまく書けなかったみたい。もう一度試してみてね。");
+    } finally {
+      setDiaryLoading(false);
+    }
+  }
+
   function reset() {
-    if (confirm("Buddyとの思い出をすべてリセットしますか？")) setPet(initialState);
+    if (confirm("Buddyとの思い出をすべてリセットしますか？")) {
+      localStorage.removeItem(STORAGE_KEY);
+      setPet(initialState);
+      setNameInput("");
+      setNaming("input");
+    }
   }
 
   return (
     <main className="shell">
+      {naming !== "hidden" && (
+        <div className="naming-overlay">
+          {naming === "input" ? (
+            <form className="naming-card" onSubmit={completeNaming}>
+              <div className="naming-egg">🥚</div>
+              <h2>小さな相棒が生まれようとしている</h2>
+              <p>名前を呼んであげると、目を覚ますよ。</p>
+              <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} placeholder="なまえ（12文字まで）" maxLength={12} autoFocus />
+              <button type="submit">この名前にする</button>
+            </form>
+          ) : (
+            <div className="naming-card naming-born">
+              <div className="naming-egg born">✨</div>
+              <h2>{pet.name}が生まれた！</h2>
+              <p>これから、たくさんの思い出をいっしょに。</p>
+            </div>
+          )}
+        </div>
+      )}
       <section className="app-card">
         <header className="topbar">
           <div><div className="eyebrow">AI PET</div><h1>{pet.name}</h1></div>
@@ -134,11 +201,14 @@ export default function Home() {
               <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="今日あったことを話す…" maxLength={500} />
               <button disabled={loading || !input.trim()}>送る</button>
             </form>
-            <p className="mode-note">{mode === "openai" ? "OpenAIモード" : "APIキー未設定時はデモモード"}</p>
+            <p className="mode-note">{mode === "openai" ? "OpenAIモード" : mode === "demo-fallback" ? "接続に失敗したため、いまはデモモードで話しています" : "APIキー未設定時はデモモード"}</p>
           </>}
 
           {tab === "memories" && <div className="cards"><h2>思い出の部屋</h2>{pet.memories.length === 0 ? <Empty text="大切な出来事を話すと、ここに残るよ。" /> : pet.memories.map((m) => <article key={m.id}><small>{new Date(m.occurredAt).toLocaleDateString('ja-JP')} · 重要度 {m.importance}</small><h3>{m.title}</h3><p>{m.summary}</p></article>)}</div>}
-          {tab === "diary" && <div className="cards"><h2>Buddyの日記</h2>{pet.diary.length === 0 ? <Empty text="今日の会話から、Buddyが日記を書くよ。" /> : pet.diary.map((d) => <article key={d.id}><small>{d.date}</small><p className="diary-body">{d.body}</p></article>)}</div>}
+          {tab === "diary" && <div className="cards">
+            <div className="cards-head"><h2>{pet.name}の日記</h2><button className="diary-write" onClick={writeDiary} disabled={diaryLoading}>{diaryLoading ? "書いている……" : "今日の日記を書いてもらう"}</button></div>
+            {pet.diary.length === 0 ? <Empty text={`今日の会話から、${pet.name}が日記を書くよ。`} /> : pet.diary.map((d) => <article key={d.id}><small>{d.date}</small><p className="diary-body">{d.body}</p></article>)}
+          </div>}
           {tab === "status" && <div className="status"><h2>育っている個性</h2>{Object.entries(pet.personality).map(([key,value]) => <div className="stat" key={key}><span>{({music:'音楽',movement:'運動',knowledge:'知識',kindness:'優しさ',curiosity:'好奇心'} as Record<string,string>)[key]}</span><div><i style={{width:`${value}%`}} /></div><b>{value}</b></div>)}<button className="reset" onClick={reset}>データをリセット</button></div>}
         </section>
       </section>
