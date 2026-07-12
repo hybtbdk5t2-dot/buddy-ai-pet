@@ -125,20 +125,39 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 
 /* ---------- キャラ（ドット絵ロボット：気分ごとの表情画像） ---------- */
 .buddy { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: 200px; height: 205px; z-index: 2; display: grid; place-items: end center; }
-.buddy-img { height: 184px; width: auto; image-rendering: pixelated; position: relative; z-index: 2; transform-origin: 50% 100%; animation: hop 3s ease-in-out infinite; }
-@keyframes hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-.buddy-shadow-el { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 108px; height: 16px; background: rgba(70, 50, 110, 0.24); border-radius: 50%; filter: blur(3px); z-index: 1; animation: shadowPulse 3s ease-in-out infinite; }
-@keyframes shadowPulse { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.24; } 50% { transform: translateX(-50%) scale(0.85); opacity: 0.15; } }
+.buddy-img { height: 184px; width: auto; image-rendering: pixelated; position: relative; z-index: 2; transform-origin: 50% 100%; cursor: pointer; -webkit-user-select: none; user-select: none; animation: idle 3.4s ease-in-out infinite; }
+/* 呼吸するような上下＋左右ゆらぎ＋着地のつぶれ */
+@keyframes idle {
+  0%, 100% { transform: translateY(0) rotate(0deg) scaleY(1); }
+  25% { transform: translateY(-6px) rotate(-1.5deg) scaleY(1.01); }
+  50% { transform: translateY(0) rotate(0deg) scaleY(0.98); }
+  75% { transform: translateY(-6px) rotate(1.5deg) scaleY(1.01); }
+}
+.buddy-shadow-el { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 108px; height: 16px; background: rgba(70, 50, 110, 0.24); border-radius: 50%; filter: blur(3px); z-index: 1; animation: shadowPulse 3.4s ease-in-out infinite; }
+@keyframes shadowPulse { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.24; } 25%, 75% { transform: translateX(-50%) scale(0.86); opacity: 0.16; } 50% { transform: translateX(-50%) scale(1); opacity: 0.24; } }
 
-/* 気分ごとの動き（表情は画像で切り替わるので、ここでは動きだけ変える） */
-.buddy-happy .buddy-img { animation: hopJoy 1.5s ease-in-out infinite; }
-@keyframes hopJoy { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px); } 55% { transform: translateY(-14px); } }
+/* 気分ごとの動き（表情は画像で切り替わる。ここでは動きの質を変える） */
+.buddy-happy .buddy-img { animation: hopJoy 1.4s ease-in-out infinite; }
+@keyframes hopJoy { 0%, 100% { transform: translateY(0) scaleY(1); } 35% { transform: translateY(-16px) scaleY(1.05); } 55% { transform: translateY(0) scaleY(0.9); } 65% { transform: translateY(0) scaleY(1.02); } }
 .buddy-sleepy .buddy-img { animation: breathe 4.5s ease-in-out infinite; }
-@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.97) translateY(3px); } }
+@keyframes breathe { 0%, 100% { transform: scaleY(1) translateY(0); } 50% { transform: scaleY(0.96) translateY(4px); } }
 .buddy-lonely .buddy-img { animation: sag 5s ease-in-out infinite; }
-@keyframes sag { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(5px); } }
+@keyframes sag { 0%, 100% { transform: translateY(3px) rotate(-1deg); } 50% { transform: translateY(6px) rotate(1deg); } }
 .buddy-surprised .buddy-img { animation: pop2 0.5s ease-out; }
-@keyframes pop2 { 0% { transform: scale(1); } 40% { transform: scale(1.07) translateY(-5px); } 100% { transform: scale(1); } }
+@keyframes pop2 { 0% { transform: scale(1); } 40% { transform: scale(1.08) translateY(-6px); } 100% { transform: scale(1); } }
+
+/* タップ反応：ぴょこんと跳ねてつぶれる（無限アニメを上書きする一発モーション） */
+.buddy-img.poking { animation: pokeBounce 0.5s ease-out; }
+@keyframes pokeBounce { 0% { transform: scale(1); } 25% { transform: scale(1.12, 0.9) translateY(-8px); } 55% { transform: scale(0.94, 1.08); } 80% { transform: scale(1.02, 0.98); } 100% { transform: scale(1); } }
+.buddy:active .buddy-img { filter: brightness(1.04); }
+
+/* タップ時のきらめき */
+.poke-fx { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.poke-fx i { position: absolute; color: #ffd35c; font-style: normal; animation: pokeSpark 0.6s ease-out forwards; }
+.poke-fx i:nth-child(1) { top: 30px; left: 30px; font-size: 18px; }
+.poke-fx i:nth-child(2) { top: 44px; right: 28px; font-size: 14px; color: #ff9db6; animation-delay: 0.06s; }
+.poke-fx i:nth-child(3) { top: 78px; left: 24px; font-size: 20px; color: #8b6ff0; animation-delay: 0.12s; }
+@keyframes pokeSpark { 0% { transform: scale(0.3) translateY(0); opacity: 0; } 40% { opacity: 1; } 100% { transform: scale(1) translateY(-16px); opacity: 0; } }
 
 /* 好意アップのハート演出（page側でトグル） */
 .love-burst { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); pointer-events: none; z-index: 5; }
@@ -257,9 +276,18 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 .naming-card p { margin: 0; color: var(--muted); font-size: 13px; }
 .naming-card input { width: 100%; border: 1px solid var(--line); background: white; padding: 13px 15px; border-radius: 15px; outline: none; text-align: center; }
 .naming-card input:focus { border-color: #b7a3f0; box-shadow: 0 0 0 4px #f0eafd; }
-.naming-card button { border: 0; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; padding: 12px 24px; border-radius: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 18px rgba(160, 110, 190, 0.35); }
+.naming-card button[type="submit"] { border: 0; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; padding: 12px 24px; border-radius: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 18px rgba(160, 110, 190, 0.35); }
 .naming-egg { font-size: 60px; animation: wobble 1.6s ease-in-out infinite; }
 .naming-egg.born { animation: pop 0.6s ease-out; }
+.naming-preview { height: 96px; display: grid; place-items: end center; }
+.naming-preview img { height: 92px; width: auto; image-rendering: pixelated; animation: wobble 2s ease-in-out infinite; }
+.naming-preview.born img { animation: pop 0.6s ease-out; }
+.name-chars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; }
+.name-char { border: 2px solid var(--line); background: white; border-radius: 14px; padding: 6px 2px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: 0.15s; }
+.name-char img { height: 46px; width: auto; image-rendering: pixelated; }
+.name-char span { font-size: 10px; color: var(--muted); }
+.name-char.active { border-color: var(--accent); background: #f6f2ff; }
+.name-char.active span { color: var(--accent); font-weight: 700; }
 @keyframes wobble { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 @keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.25); } 100% { transform: scale(1); opacity: 1; } }
 .naming-born { animation: fadein 0.4s ease-out; }

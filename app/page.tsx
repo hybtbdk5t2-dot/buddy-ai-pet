@@ -8,6 +8,7 @@ import { evolutionStage, sortMemories, todayKey } from "@/lib/engagement";
 import { detectLevelChange, processVisit } from "@/lib/engine/events";
 import { appendUserMessage, applyChatError, applyChatResult, applyDiaryBody } from "@/lib/engine/reducer";
 import { validatePet } from "@/lib/engine/validate";
+import { defaultPersona } from "@/lib/persona/defaults";
 import { driftEmotion, emotionLabel, ensurePersona, generateCurrentLife, syncPersonaToCharacter } from "@/lib/persona/engine";
 import type { BackgroundSetting, ChatResult, PetState } from "@/lib/types";
 
@@ -54,6 +55,7 @@ export default function Home() {
   const [mode, setMode] = useState<string | null>(null);
   const [naming, setNaming] = useState<"hidden" | "input" | "born">("hidden");
   const [nameInput, setNameInput] = useState("");
+  const [nameChar, setNameChar] = useState("robot");
   const [heartBurst, setHeartBurst] = useState(0);
   const [levelUp, setLevelUp] = useState<LevelUp | null>(null);
   const [editing, setEditing] = useState<{ id: string; title: string; summary: string } | null>(null);
@@ -168,6 +170,8 @@ export default function Home() {
     setPet((current) => ({
       ...current,
       name,
+      character: nameChar,
+      persona: defaultPersona(nameChar),
       bornAt: now,
       streak: 1,
       lastVisitDate: todayKey(),
@@ -270,15 +274,23 @@ export default function Home() {
         <div className="naming-overlay">
           {naming === "input" ? (
             <form className="naming-card" onSubmit={completeNaming}>
-              <div className="naming-egg">🥚</div>
-              <h2>小さな相棒が生まれようとしている</h2>
-              <p>名前を呼んであげると、目を覚ますよ。</p>
+              <div className="naming-preview"><img src={`/characters/${nameChar}/happy.png`} alt="" /></div>
+              <h2>あたらしい相棒をむかえよう</h2>
+              <p>すがたと名前をえらんでね。</p>
+              <div className="name-chars">
+                {CHARACTERS.map((c) => (
+                  <button type="button" key={c.id} className={`name-char ${nameChar === c.id ? "active" : ""}`} onClick={() => setNameChar(c.id)}>
+                    <img src={`/characters/${c.id}/normal.png`} alt="" />
+                    <span>{c.label}</span>
+                  </button>
+                ))}
+              </div>
               <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} placeholder="なまえ（12文字まで）" maxLength={12} autoFocus />
-              <button type="submit">この名前にする</button>
+              <button type="submit">この子にする</button>
             </form>
           ) : (
             <div className="naming-card naming-born">
-              <div className="naming-egg born">✨</div>
+              <div className="naming-preview born"><img src={`/characters/${pet.character ?? "robot"}/happy.png`} alt="" /></div>
               <h2>{pet.name}が生まれた！</h2>
               <p>これから、たくさんの思い出をいっしょに。</p>
             </div>
