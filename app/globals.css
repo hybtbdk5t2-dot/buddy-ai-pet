@@ -215,6 +215,14 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 /* ---------- 成長 ---------- */
 .status { padding: 8px 6px; }
 .status h2 { font-size: 18px; margin: 6px 2px 12px; }
+.persona-card { border-radius: 20px; padding: 16px 18px; background: linear-gradient(135deg, #fff5e9, #fdeefb); border: 1px solid #f2e6d8; margin-bottom: 14px; }
+.persona-now { font-size: 13px; color: #8a7a5c; display: flex; align-items: center; gap: 8px; }
+.persona-now b { background: #fff; border-radius: 99px; padding: 4px 12px; color: var(--accent); font-size: 14px; box-shadow: 0 3px 8px rgba(160, 120, 90, 0.12); }
+.persona-sec { margin-top: 12px; }
+.persona-sec h3 { margin: 0 0 6px; font-size: 13px; color: var(--ink); }
+.persona-sec ul { margin: 0; padding-left: 18px; }
+.persona-sec li { font-size: 13px; line-height: 1.7; color: #6d6382; }
+
 .evo-card { border-radius: 20px; padding: 18px; text-align: center; background: linear-gradient(135deg, #efeaff, #ffeef4); border: 1px solid #ece4fb; margin-bottom: 18px; }
 .evo-stage { letter-spacing: 4px; color: var(--accent); font-size: 12px; }
 .evo-title { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }

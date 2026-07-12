@@ -15,6 +15,8 @@ export type GameEvent =
 export type VisitResult = {
   events: GameEvent[];
   streak: number;
+  daysAway: number; // 前回来訪からの経過日数
+  isNewDay: boolean; // 今日はじめての来訪か
   greeting: string | null; // 新しい日にBuddyから話しかける一言
   moodOverride: Mood | null;
 };
@@ -35,7 +37,7 @@ export function processVisit(pet: PetState, today = todayKey()): VisitResult {
     if (visit.streak >= 2) events.push({ type: "streak", streak: visit.streak });
   }
 
-  return { events, streak: visit.streak, greeting, moodOverride };
+  return { events, streak: visit.streak, daysAway: visit.daysAway, isNewDay: visit.isNewDay, greeting, moodOverride };
 }
 
 /** レベル変化からレベルアップ／進化イベントを判定する */

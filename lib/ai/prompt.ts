@@ -1,5 +1,6 @@
 import { evolutionStage } from "../engagement";
 import { emotionalMemory, longTermMemory, shortTermMessages } from "../memory";
+import { buildPersonaBlock, ensurePersona } from "../persona/engine";
 import type { Mood, PetState } from "../types";
 import { getCharacter } from "./characters";
 import { personalityCorrections } from "./persona";
@@ -25,10 +26,12 @@ export function buildChatMessages(
   const corrections = personalityCorrections(pet.personality);
   const recentDiary = pet.diary.slice(0, 3).map((d) => `- ${d.date}: ${d.body.slice(0, 80)}`).join("\n") || "まだない";
 
-  // 最終的な話し方 = キャラクターの芯 ＋ 個性値による補正 ＋ 気分
+  // 最終的な話し方 = キャラクターの芯 ＋ 人格(Persona) ＋ 個性値による補正 ＋ 気分
   const systemParts = [
     renderPrompt("system", { name: pet.name, stage: stage.title }),
     renderPrompt("character_core", { baseTone: character.baseTone }),
+    // 人格はアプリが保持。AIはこれを表現するだけで、人格を決めない。
+    buildPersonaBlock(ensurePersona(pet)),
   ];
   if (corrections) systemParts.push(renderPrompt("personality_corrections", { corrections }));
   systemParts.push(renderPrompt("emotion", { moodLabel: MOOD_LABEL[mood], moodHint: MOOD_HINT[mood] }));

@@ -8,6 +8,7 @@ import { evolutionStage, sortMemories, todayKey } from "@/lib/engagement";
 import { detectLevelChange, processVisit } from "@/lib/engine/events";
 import { appendUserMessage, applyChatError, applyChatResult, applyDiaryBody } from "@/lib/engine/reducer";
 import { validatePet } from "@/lib/engine/validate";
+import { driftEmotion, emotionLabel, ensurePersona, generateCurrentLife, syncPersonaToCharacter } from "@/lib/persona/engine";
 import type { BackgroundSetting, ChatResult, PetState } from "@/lib/types";
 
 const STORAGE_KEY = "buddy-ai-pet-v01";
@@ -73,14 +74,26 @@ export default function Home() {
 
     const today = todayKey();
     const visit = processVisit(loaded, today);
+
+    // Persona Engine：新しい日は「留守中の暮らし」を生成し、感情を自然にドリフトさせる
+    let persona = ensurePersona(loaded);
+    let greeting = visit.greeting;
+    if (visit.isNewDay) {
+      const emotion = driftEmotion({ daysAway: visit.daysAway, streak: visit.streak, affection: loaded.affection });
+      const currentLife = greeting ? generateCurrentLife({ ...persona, emotion }, visit.daysAway) : persona.currentLife;
+      persona = { ...persona, emotion, currentLife, emotionUpdatedAt: new Date().toISOString() };
+      if (greeting && currentLife[0]) greeting = `${greeting} ……あ、留守のあいだ、${currentLife[0].text}んだ。`;
+    }
+
     const withMeta: PetState = validatePet({
       ...loaded,
       bornAt: loaded.bornAt ?? loaded.messages?.[0]?.createdAt ?? new Date().toISOString(),
       streak: visit.streak,
       lastVisitDate: today,
-      ...(visit.greeting
+      persona,
+      ...(greeting
         ? {
-            messages: [...loaded.messages, { id: uid(), role: "assistant", content: visit.greeting, createdAt: new Date().toISOString() }],
+            messages: [...loaded.messages, { id: uid(), role: "assistant", content: greeting, createdAt: new Date().toISOString() }],
             mood: visit.moodOverride ?? loaded.mood,
           }
         : {}),
@@ -121,6 +134,7 @@ export default function Home() {
     if (!pet.bornAt) return 1;
     return Math.max(1, Math.floor((Date.now() - new Date(pet.bornAt).getTime()) / 86400000) + 1);
   }, [pet.bornAt]);
+  const persona = useMemo(() => ensurePersona(pet), [pet.persona, pet.character]);
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
@@ -230,9 +244,9 @@ export default function Home() {
     reader.readAsText(file);
   }
 
-  // ---- キャラクターの選択（見た目＋芯の口調が切り替わる） ----
+  // ---- キャラクターの選択（見た目＋芯の口調が切り替わる。人格の芯も新キャラへ、感情や暮らしは引き継ぐ） ----
   function setCharacter(id: string) {
-    setPet((c) => ({ ...c, character: id }));
+    setPet((c) => ({ ...c, character: id, persona: syncPersonaToCharacter(c.persona, id) }));
     setCharPicker(false);
   }
 
@@ -428,6 +442,19 @@ export default function Home() {
           </div>}
 
           {tab === "status" && <div className="status">
+            <div className="persona-card">
+              <div className="persona-now">いまの気分 <b>{emotionLabel(persona.emotion)}</b></div>
+              <div className="persona-sec">
+                <h3>🌟 {pet.name}のゆめ</h3>
+                <ul>{persona.dreams.map((d, i) => <li key={i}>{d.text}</li>)}</ul>
+              </div>
+              {persona.currentLife.length > 0 && (
+                <div className="persona-sec">
+                  <h3>🏠 さいきんの暮らし</h3>
+                  <ul>{persona.currentLife.slice(0, 4).map((l, i) => <li key={i}>{l.text}</li>)}</ul>
+                </div>
+              )}
+            </div>
             <div className="evo-card">
               <div className="evo-stage">{"●".repeat(stage.stage)}{"○".repeat(5 - stage.stage)}</div>
               <div className="evo-title">{stage.title}</div>

@@ -1,3 +1,6 @@
+import type { Persona } from "./persona/types";
+export type { Persona } from "./persona/types";
+
 export type Mood = "normal" | "happy" | "thinking" | "sleepy" | "lonely" | "surprised";
 
 // 背景設定：ドット風プリセット、または利用者がアップロードした画像
@@ -50,6 +53,7 @@ export type PetState = {
   streak?: number;        // 連続来訪日数
   background?: BackgroundSetting; // 部屋の背景（未設定なら既定のドット風プリセット）
   character?: string;     // 選択中のキャラクター（未設定なら robot）。芯の口調と見た目を決める
+  persona?: Persona;      // Persona Engine が保持する人格（芯・感情・興味・夢・暮らし）
 };
 
 export type ChatResult = {
