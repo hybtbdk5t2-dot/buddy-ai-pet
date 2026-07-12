@@ -53,37 +53,59 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
   transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ---------- おへや ---------- */
-.room {
-  height: 300px; margin: 0 16px; border-radius: 28px; position: relative; overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 120%, #fff5e6 0, transparent 55%),
-    linear-gradient(var(--room-top) 0 62%, #ffe4c9 62%);
-  border: 1px solid rgba(120, 90, 160, 0.08);
-  box-shadow: inset 0 -20px 40px rgba(255, 200, 150, 0.25), inset 0 10px 30px rgba(180, 210, 255, 0.4);
-}
-/* 床の境目 */
-.room::after { content: ""; position: absolute; left: 0; right: 0; top: 62%; height: 3px; background: rgba(210, 160, 110, 0.35); }
-/* 窓 */
-.window {
-  position: absolute; top: 26px; left: 28px; width: 74px; height: 66px; border-radius: 12px 12px 10px 10px;
-  border: 6px solid #fff7ec; background: linear-gradient(#bfe2ff, #eaf6ff);
-  box-shadow: 0 6px 0 rgba(200, 170, 130, 0.4); overflow: hidden;
-}
-.window .sun { position: absolute; top: 8px; right: 9px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff2b0, #ffd35c); box-shadow: 0 0 10px rgba(255, 211, 92, 0.8); }
-.window .cloud { position: absolute; bottom: 10px; left: 6px; width: 26px; height: 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.9); box-shadow: 8px -4px 0 -1px rgba(255, 255, 255, 0.9), -2px -3px 0 -2px rgba(255, 255, 255, 0.9); animation: drift 8s ease-in-out infinite; }
-@keyframes drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(10px); } }
-.plant { position: absolute; right: 26px; bottom: 42px; font-size: 40px; filter: drop-shadow(0 6px 6px rgba(80, 120, 80, 0.2)); }
-.rug { position: absolute; width: 220px; height: 46px; background: radial-gradient(#f6c9e0, #e9aecf); border-radius: 50%; bottom: 22px; left: 50%; transform: translateX(-50%); opacity: 0.55; }
+/* ---------- おへや（ドット風背景） ---------- */
+.room { height: 300px; margin: 0 16px; border-radius: 28px; position: relative; overflow: hidden; border: 1px solid rgba(120, 90, 160, 0.14); box-shadow: inset 0 4px 18px rgba(0, 0, 0, 0.06); }
+.bg { position: absolute; inset: 0; z-index: 0; }
+/* 全プリセット共通の薄いドットグリッド質感 */
+.bg::after { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.045) 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.045) 0 1px, transparent 1px 4px); }
 
-/* ふわふわ浮かぶ光の粒 */
-.motes { position: absolute; inset: 0; pointer-events: none; }
-.motes i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: 0.7; box-shadow: 0 0 8px #fff; animation: rise linear infinite; }
-.motes i:nth-child(1) { left: 18%; bottom: -10px; animation-duration: 9s; }
-.motes i:nth-child(2) { left: 44%; bottom: -10px; width: 4px; animation-duration: 11s; animation-delay: 2s; }
-.motes i:nth-child(3) { left: 70%; bottom: -10px; width: 5px; animation-duration: 8s; animation-delay: 1s; }
-.motes i:nth-child(4) { left: 86%; bottom: -10px; width: 3px; animation-duration: 12s; animation-delay: 3s; }
-@keyframes rise { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 15% { opacity: 0.8; } 100% { transform: translateY(-320px) scale(1); opacity: 0; } }
+/* プリセットの帯（フラットな色・ハードエッジ） */
+.bg-room { background: linear-gradient(#bfe3ff 0 60%, #d9b892 60% 64%, #c99f74 64%); }
+.bg-night { background: linear-gradient(#1c1846 0 62%, #2c2560 62% 66%, #221c4c 66%); }
+.bg-meadow { background: linear-gradient(#a9e0ff 0 58%, #7ec96b 58% 64%, #67b356 64%); }
+.bg-sunset { background: linear-gradient(#ffd08a 0 20%, #ff9e7a 20% 40%, #f57a8c 40% 60%, #caa07a 60% 64%, #b3895f 64%); }
+/* 利用者の画像背景（ドット絵は拡大してもくっきり） */
+.bg-image { background-size: cover; background-position: center; image-rendering: pixelated; }
+.bg-image::after { display: none; }
+
+/* ---- ドット・デコレーション ---- */
+.px-window { position: absolute; top: 24px; left: 26px; width: 56px; height: 52px; background: #eaf6ff; border: 5px solid #f7f0e2; box-shadow: 0 5px 0 #b79a74; z-index: 1; }
+.px-window .px-sun { position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; background: #ffd35c; box-shadow: -4px 0 0 #ffd35c, 4px 0 0 #ffd35c, 0 -4px 0 #ffd35c, 0 4px 0 #ffd35c; }
+.px-plant { position: absolute; right: 30px; bottom: 42px; width: 14px; height: 14px; background: #c8703c; z-index: 1; box-shadow: 0 -16px 0 #4faa5a, -9px -11px 0 #5cb968, 9px -11px 0 #5cb968, 0 -27px 0 #6cc879; }
+.px-rug { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); width: 186px; height: 24px; background: #e6a9cf; box-shadow: inset 0 0 0 4px #d98cba; z-index: 1; }
+.px-rug.night { background: #45447e; box-shadow: inset 0 0 0 4px #38386a; }
+.px-rug.dusk { background: #b96b8a; box-shadow: inset 0 0 0 4px #9c556f; }
+.px-star { position: absolute; width: 6px; height: 6px; background: #fff4b0; box-shadow: -3px 0 0 #fff4b0, 3px 0 0 #fff4b0, 0 -3px 0 #fff4b0, 0 3px 0 #fff4b0; animation: pxtwinkle 3s ease-in-out infinite; z-index: 1; }
+.px-star.sm { width: 4px; height: 4px; box-shadow: none; }
+@keyframes pxtwinkle { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+.px-moon { position: absolute; top: 22px; right: 28px; width: 32px; height: 32px; background: #f5e6b0; box-shadow: inset -9px 0 0 #e6cf86; z-index: 1; }
+.px-cloud { position: absolute; width: 34px; height: 11px; background: #fff; box-shadow: 12px -7px 0 #fff, 24px -3px 0 -2px #fff; z-index: 1; animation: pxdrift 12s ease-in-out infinite; }
+.px-cloud.sm { transform: scale(0.7); animation-delay: 2s; }
+.px-cloud.dusk { background: #ffd9b0; box-shadow: 12px -7px 0 #ffd9b0, 24px -3px 0 -2px #ffd9b0; }
+@keyframes pxdrift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(12px); } }
+.px-cloud.sm { transform: translateX(0) scale(0.7); }
+.px-flower { position: absolute; width: 6px; height: 6px; z-index: 1; }
+.px-flower.a { background: #ffd35c; box-shadow: -5px 0 0 #ff9db6, 5px 0 0 #ff9db6, 0 -5px 0 #ff9db6, 0 5px 0 #ff9db6; }
+.px-flower.b { background: #ffd35c; box-shadow: -5px 0 0 #fff, 5px 0 0 #fff, 0 -5px 0 #fff, 0 5px 0 #fff; }
+.px-sun-big { position: absolute; top: 66px; left: 50%; transform: translateX(-50%); width: 52px; height: 52px; background: #ffef9e; box-shadow: 0 0 0 6px rgba(255, 220, 140, 0.45); z-index: 1; }
+
+/* 背景変更ボタン */
+.bg-btn { position: absolute; top: 12px; right: 12px; z-index: 5; width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.82); cursor: pointer; font-size: 15px; line-height: 1; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14); transition: 0.15s; }
+.bg-btn:hover { background: #fff; transform: scale(1.06); }
+
+/* 背景ピッカー */
+.bg-picker-overlay { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 20px; background: rgba(50, 40, 75, 0.45); backdrop-filter: blur(8px); animation: fadein 0.3s ease-out; }
+.bg-picker { width: min(100%, 380px); background: var(--paper); border-radius: 24px; padding: 22px; box-shadow: 0 30px 80px rgba(30, 20, 60, 0.4); animation: pop 0.4s ease-out; }
+.bg-picker-head { display: flex; justify-content: space-between; align-items: center; }
+.bg-picker-head h2 { margin: 0; font-size: 18px; }
+.bg-close { border: 0; background: #f0ecf6; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; color: var(--muted); font-size: 13px; }
+.bg-picker-note { margin: 6px 0 16px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.bg-thumb { position: relative; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; height: 76px; cursor: pointer; padding: 0; background: none; }
+.bg-thumb .bg { position: absolute; inset: 0; z-index: 0; }
+.bg-thumb b { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; font-size: 11px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, 0.4); padding: 3px 0; text-align: center; }
+.bg-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 3px #eee9fb; }
+.bg-thumb.upload .bg-upload { display: grid; place-items: center; font-size: 26px; color: var(--accent); background: #f5f1fd; position: absolute; inset: 0; }
 
 /* ---------- Buddy キャラ ---------- */
 .buddy { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: 190px; height: 190px; z-index: 2; }
@@ -268,5 +290,5 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 /* アニメを控える設定を尊重 */
 @media (prefers-reduced-motion: reduce) {
   .buddy-hop, .buddy-eyes, .buddy-arm, .buddy-shadow, .buddy-cheek, .buddy-leaf,
-  .motes i, .buddy-zzz span, .buddy-sparkle span, .naming-egg { animation: none !important; }
+  .px-star, .px-cloud, .buddy-zzz span, .buddy-sparkle span, .naming-egg { animation: none !important; }
 }

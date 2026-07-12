@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PetAvatar } from "@/components/PetAvatar";
+import { BG_PRESETS, DEFAULT_BACKGROUND, RoomBackground } from "@/components/RoomBackground";
 import {
   computeVisit,
   evolutionStage,
@@ -9,7 +10,7 @@ import {
   sortMemories,
   todayKey,
 } from "@/lib/engagement";
-import type { ChatResult, DiaryEntry, Memory, Message, PetState } from "@/lib/types";
+import type { BackgroundSetting, ChatResult, DiaryEntry, Memory, Message, PetState } from "@/lib/types";
 
 const STORAGE_KEY = "buddy-ai-pet-v01";
 const initialState: PetState = {
@@ -46,8 +47,10 @@ export default function Home() {
   const [levelUp, setLevelUp] = useState<LevelUp | null>(null);
   const [editing, setEditing] = useState<{ id: string; title: string; summary: string } | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [bgPicker, setBgPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgFileRef = useRef<HTMLInputElement>(null);
   const prevLevel = useRef(initialState.level);
 
   // 読み込み＋長期利用向けメタ情報の補完＋再訪あいさつ
@@ -77,7 +80,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated || naming === "input") return; // 読み込み完了までは保存しない（初期状態での上書き防止）
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pet));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pet));
+    } catch {
+      // 主に背景画像が大きすぎて保存容量を超えたケース。落とさず通知する。
+      alert("データを保存できませんでした。背景画像が大きすぎる可能性があります。小さめの画像を選んでください。");
+    }
   }, [pet, naming, hydrated]);
 
   useEffect(() => {
@@ -250,6 +258,20 @@ export default function Home() {
     reader.readAsText(file);
   }
 
+  // ---- 背景の設定 ----
+  function setBackground(bg: BackgroundSetting) {
+    setPet((c) => ({ ...c, background: bg }));
+  }
+  function chooseBackgroundImage(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("画像ファイルを選んでください。"); return; }
+    resizeImage(file, 1280)
+      .then((data) => { setBackground({ type: "image", data }); setBgPicker(false); })
+      .catch(() => alert("この画像は読み込めませんでした。別の画像を試してください。"));
+  }
+
   return (
     <main className="shell">
       {naming !== "hidden" && (
@@ -269,6 +291,37 @@ export default function Home() {
               <p>これから、たくさんの思い出をいっしょに。</p>
             </div>
           )}
+        </div>
+      )}
+
+      {bgPicker && (
+        <div className="bg-picker-overlay" onClick={() => setBgPicker(false)}>
+          <div className="bg-picker" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-picker-head">
+              <h2>背景をえらぶ</h2>
+              <button className="bg-close" onClick={() => setBgPicker(false)} aria-label="閉じる">✕</button>
+            </div>
+            <p className="bg-picker-note">ドット風のプリセット、または好きな画像を背景にできます。</p>
+            <div className="bg-grid">
+              {BG_PRESETS.map((preset) => {
+                const activeBg = pet.background ?? DEFAULT_BACKGROUND;
+                const active = activeBg.type === "preset" && activeBg.id === preset.id;
+                return (
+                  <button key={preset.id} className={`bg-thumb ${active ? "active" : ""}`} onClick={() => { setBackground({ type: "preset", id: preset.id }); setBgPicker(false); }}>
+                    <span className={`bg bg-${preset.id}`} />
+                    <b>{preset.label}</b>
+                  </button>
+                );
+              })}
+              <button className={`bg-thumb upload ${pet.background?.type === "image" ? "active" : ""}`} onClick={() => bgFileRef.current?.click()}>
+                {pet.background?.type === "image"
+                  ? <span className="bg bg-image" style={{ backgroundImage: `url(${pet.background.data})` }} />
+                  : <span className="bg bg-upload">＋</span>}
+                <b>{pet.background?.type === "image" ? "変える" : "画像を選ぶ"}</b>
+              </button>
+            </div>
+            <input ref={bgFileRef} type="file" accept="image/*" hidden onChange={chooseBackgroundImage} />
+          </div>
         </div>
       )}
 
@@ -300,14 +353,12 @@ export default function Home() {
         <div className="progress" aria-label="経験値"><div style={{ width: `${progress}%` }} /></div>
 
         <section className="room">
-          <div className="motes"><i /><i /><i /><i /></div>
-          <div className="window"><i className="sun" /><i className="cloud" /></div>
-          <div className="plant">🪴</div>
-          <div className="rug" />
+          <RoomBackground background={pet.background} />
           <PetAvatar mood={pet.mood} level={pet.level} />
           {heartBurst > 0 && (
             <div className="love-burst" key={heartBurst}><span>♥</span><span>♥</span><span>♥</span></div>
           )}
+          <button className="bg-btn" onClick={() => setBgPicker(true)} aria-label="背景を変える" title="背景を変える">🖼</button>
           <div className={`speech ${loading ? "thinking" : ""}`}>
             {loading
               ? <span className="dots"><span>●</span><span>●</span><span>●</span></span>
@@ -407,4 +458,32 @@ export default function Home() {
 
 function Empty({ text, emoji = "✦" }: { text: string; emoji?: string }) {
   return <div className="empty"><div className="emoji">{emoji}</div><p>{text}</p></div>;
+}
+
+// 画像を読み込み、大きすぎる写真だけ縮小して保存サイズを抑える。
+// 小さな画像（ドット絵など）はそのまま返して質感を保つ。
+function resizeImage(file: File, maxDim: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read error"));
+    reader.onload = () => {
+      const src = String(reader.result);
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode error"));
+      img.onload = () => {
+        const { width, height } = img;
+        if (width <= maxDim && height <= maxDim) { resolve(src); return; }
+        const scale = maxDim / Math.max(width, height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(width * scale);
+        canvas.height = Math.round(height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(src); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
 }

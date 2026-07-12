@@ -1,5 +1,10 @@
 export type Mood = "normal" | "happy" | "thinking" | "sleepy" | "lonely" | "surprised";
 
+// 背景設定：ドット風プリセット、または利用者がアップロードした画像
+export type BackgroundSetting =
+  | { type: "preset"; id: string }
+  | { type: "image"; data: string };
+
 export type Memory = {
   id: string;
   title: string;
@@ -43,6 +48,7 @@ export type PetState = {
   bornAt?: string;        // Buddyが生まれた日（ISO）
   lastVisitDate?: string; // 最後に会話した日（YYYY-MM-DD）
   streak?: number;        // 連続来訪日数
+  background?: BackgroundSetting; // 部屋の背景（未設定なら既定のドット風プリセット）
 };
 
 export type ChatResult = {
