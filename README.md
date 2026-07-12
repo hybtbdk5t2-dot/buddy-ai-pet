@@ -41,6 +41,36 @@ Buddyの見た目は `components/PetAvatar.tsx` に独立しています。`mood
 
 背景は `components/RoomBackground.tsx` に独立しており、ドット風プリセットの追加や差し替えもここで行えます。
 
+## AIアーキテクチャ（プロバイダー非依存）
+
+AIは特定ベンダーに依存しません。1つの抽象化レイヤー（AI Service）を経由し、環境変数だけで切り替えられます。
+
+```
+lib/ai/
+  index.ts        … AI Service（プロバイダー選択・キャッシュ・フォールバック）
+  types.ts        … AIProvider インターフェイス
+  cache.ts        … 応答のTTLキャッシュ（APIコール削減）
+  prompt.ts       … ペットの文脈 → メッセージ列の組み立て
+  providers/
+    openai.ts / gemini.ts / claude.ts / openrouter.ts / local.ts
+```
+
+- **切り替え**: `.env.local` の `AI_PROVIDER`（`openai|gemini|claude|openrouter|local`）で指定。未指定なら設定済みのキーから自動選択。どれも無ければデモ（ローカル応答）。
+- **プロバイダー追加**: `lib/ai/providers/` に1ファイル追加し、`lib/ai/index.ts` の登録表に1行足すだけ。
+- **UI・ゲームロジックはAPIを直接呼びません**。必ず `app/api/chat`・`app/api/diary` → AI Service を経由します。
+- **キャッシュ**: 同一入力の連続コールはメモリキャッシュ（既定5分）で間引き、APIコールを削減します。
+
+### AIを使う範囲（コスト削減）
+
+AIは「会話文」と「日記本文」の**自然言語生成だけ**に使います。以下はすべて `lib/game.ts` などのローカルロジックで処理し、AIを呼びません。
+
+- レベル・経験値・親密度・気分・成長・進化
+- 個性パラメーターの増減
+- 記憶の保存判定・思い出/日記の状態管理
+- アニメーション・通知・セーブデータ
+
+そのため **APIキーが無くても（オフラインでも）** アプリは一通り動作し、AIが失敗しても自動でローカル応答にフォールバックします。
+
 ## 現在の保存方式
 
 `localStorage` を利用しています(長期利用を想定し、リセット機能は廃止。代わりにバックアップ書き出し／復元を用意)。本番化ではSupabase/PostgreSQLへ移行し、認証、複数端末同期、ベクトル検索による長期記憶を追加してください。

@@ -32,6 +32,17 @@ const TRAIT_META: Record<string, [string, string]> = {
   music: ["🎵", "音楽"], movement: ["🏃", "運動"], knowledge: ["📚", "知識"], kindness: ["💗", "優しさ"], curiosity: ["✨", "好奇心"],
 };
 
+// どのAIプロバイダーで会話しているかの表示（AIServiceのmodeに対応）
+const MODE_LABEL: Record<string, string> = {
+  openai: "OpenAIモード",
+  gemini: "Geminiモード",
+  claude: "Claudeモード",
+  openrouter: "OpenRouterモード",
+  local: "ローカルAIモード",
+  demo: "デモモード（AI未設定）",
+  "demo-fallback": "接続に失敗したため、いまはデモモードで話しています",
+};
+
 type LevelUp = { level: number; title: string; evolved: boolean };
 
 export default function Home() {
@@ -40,7 +51,7 @@ export default function Home() {
   const [tab, setTab] = useState<"chat" | "memories" | "diary" | "status">("chat");
   const [loading, setLoading] = useState(false);
   const [diaryLoading, setDiaryLoading] = useState(false);
-  const [mode, setMode] = useState<"demo" | "openai" | "demo-fallback" | null>(null);
+  const [mode, setMode] = useState<string | null>(null);
   const [naming, setNaming] = useState<"hidden" | "input" | "born">("hidden");
   const [nameInput, setNameInput] = useState("");
   const [heartBurst, setHeartBurst] = useState(0);
@@ -124,7 +135,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, pet: nextPet }) });
       if (!response.ok) throw new Error("返答を取得できませんでした");
-      const result = (await response.json()) as ChatResult & { mode?: "demo" | "openai" | "demo-fallback" };
+      const result = (await response.json()) as ChatResult & { mode?: string };
       setMode(result.mode || null);
       if (result.affectionDelta > 0) setHeartBurst((n) => n + 1);
 
@@ -191,7 +202,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/diary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pet }) });
       if (!response.ok) throw new Error("日記を取得できませんでした");
-      const result = (await response.json()) as { body: string; mode: "demo" | "openai" | "demo-fallback" };
+      const result = (await response.json()) as { body: string; mode: string };
       setMode(result.mode);
       setPet((current) => {
         const today = new Date().toISOString().slice(0, 10);
@@ -382,7 +393,7 @@ export default function Home() {
               <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="今日あったことを話す…" maxLength={500} />
               <button disabled={loading || !input.trim()}>送る</button>
             </form>
-            <p className="mode-note">{mode === "openai" ? "OpenAIモード" : mode === "demo-fallback" ? "接続に失敗したため、いまはデモモードで話しています" : "APIキー未設定時はデモモード"}</p>
+            <p className="mode-note">{mode ? MODE_LABEL[mode] ?? mode : "APIキー未設定時はデモモード"}</p>
           </>}
 
           {tab === "memories" && <div className="cards">
