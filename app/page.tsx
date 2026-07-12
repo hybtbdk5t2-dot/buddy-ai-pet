@@ -17,6 +17,7 @@ const initialState: PetState = {
   affection: 5,
   mood: "happy",
   personality: { music: 0, movement: 0, knowledge: 0, kindness: 1, curiosity: 1 },
+  character: "robot",
   messages: [{ id: "welcome", role: "assistant", content: "はじめまして。今日から、君と一緒に育っていきたい。まずは今日のことを聞かせて？", createdAt: new Date().toISOString() }],
   memories: [],
   diary: [],

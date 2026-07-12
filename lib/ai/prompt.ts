@@ -1,6 +1,8 @@
-import { dominantTrait, evolutionStage } from "../engagement";
+import { evolutionStage } from "../engagement";
 import { emotionalMemory, longTermMemory, shortTermMessages } from "../memory";
 import type { Mood, PetState } from "../types";
+import { getCharacter } from "./characters";
+import { personalityCorrections } from "./persona";
 import { renderPrompt } from "./prompts";
 import type { AIMessage } from "./types";
 
@@ -18,20 +20,23 @@ export function buildChatMessages(
   mood: Mood,
   opts: { story?: boolean } = {},
 ): AIMessage[] {
-  const dom = dominantTrait(pet.personality);
   const stage = evolutionStage(pet.level);
+  const character = getCharacter(pet.character);
+  const corrections = personalityCorrections(pet.personality);
   const recentDiary = pet.diary.slice(0, 3).map((d) => `- ${d.date}: ${d.body.slice(0, 80)}`).join("\n") || "まだない";
 
+  // 最終的な話し方 = キャラクターの芯 ＋ 個性値による補正 ＋ 気分
   const systemParts = [
     renderPrompt("system", { name: pet.name, stage: stage.title }),
-    dom ? renderPrompt("personality", { name: pet.name, dominantLabel: dom.label }) : renderPrompt("personality_blank", { name: pet.name }),
-    renderPrompt("emotion", { moodLabel: MOOD_LABEL[mood], moodHint: MOOD_HINT[mood] }),
-    renderPrompt("memory", {
-      longTerm: longTermMemory(pet, message),
-      emotional: emotionalMemory(pet),
-      recentDiary,
-    }),
+    renderPrompt("character_core", { baseTone: character.baseTone }),
   ];
+  if (corrections) systemParts.push(renderPrompt("personality_corrections", { corrections }));
+  systemParts.push(renderPrompt("emotion", { moodLabel: MOOD_LABEL[mood], moodHint: MOOD_HINT[mood] }));
+  systemParts.push(renderPrompt("memory", {
+    longTerm: longTermMemory(pet, message),
+    emotional: emotionalMemory(pet),
+    recentDiary,
+  }));
   if (opts.story) systemParts.push(renderPrompt("story", { name: pet.name }));
 
   return [

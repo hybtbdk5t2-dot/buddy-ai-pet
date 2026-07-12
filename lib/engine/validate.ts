@@ -63,5 +63,6 @@ export function validatePet(pet: PetState): PetState {
     lastVisitDate: str(pet.lastVisitDate, 10) || undefined,
     streak: pet.streak === undefined ? undefined : Math.max(0, Math.round(Number(pet.streak) || 0)),
     background: validateBackground(pet.background),
+    character: str(pet.character, 40) || undefined,
   };
 }

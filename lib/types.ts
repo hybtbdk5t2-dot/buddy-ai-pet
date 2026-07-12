@@ -49,6 +49,7 @@ export type PetState = {
   lastVisitDate?: string; // 最後に会話した日（YYYY-MM-DD）
   streak?: number;        // 連続来訪日数
   background?: BackgroundSetting; // 部屋の背景（未設定なら既定のドット風プリセット）
+  character?: string;     // 選択中のキャラクター（未設定なら robot）。芯の口調と見た目を決める
 };
 
 export type ChatResult = {
