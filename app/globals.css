@@ -111,60 +111,22 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 .bg-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 3px #eee9fb; }
 .bg-thumb.upload .bg-upload { display: grid; place-items: center; font-size: 26px; color: var(--accent); background: #f5f1fd; position: absolute; inset: 0; }
 
-/* ---------- Buddy キャラ ---------- */
-.buddy { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: 190px; height: 190px; z-index: 2; }
-.buddy-svg { width: 100%; height: 100%; overflow: visible; }
+/* ---------- キャラ（ドット絵ロボット：気分ごとの表情画像） ---------- */
+.buddy { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: 200px; height: 205px; z-index: 2; display: grid; place-items: end center; }
+.buddy-img { height: 184px; width: auto; image-rendering: pixelated; position: relative; z-index: 2; transform-origin: 50% 100%; animation: hop 3s ease-in-out infinite; }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.buddy-shadow-el { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 108px; height: 16px; background: rgba(70, 50, 110, 0.24); border-radius: 50%; filter: blur(3px); z-index: 1; animation: shadowPulse 3s ease-in-out infinite; }
+@keyframes shadowPulse { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.24; } 50% { transform: translateX(-50%) scale(0.85); opacity: 0.15; } }
 
-.buddy-hop { transform-box: fill-box; transform-origin: 50% 100%; animation: hop 3s ease-in-out infinite; }
-@keyframes hop { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-6px) scaleY(1.02); } }
-
-.buddy-shadow { transform-box: fill-box; transform-origin: center; animation: shadowPulse 3s ease-in-out infinite; }
-@keyframes shadowPulse { 0%, 100% { transform: scale(1); opacity: 0.18; } 50% { transform: scale(0.86); opacity: 0.12; } }
-
-/* 瞬き（丸い瞳のときだけ付与） */
-.buddy-eyes { transform-box: fill-box; transform-origin: center; animation: blink 4.2s infinite; }
-@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
-
-.buddy-arm { transform-box: fill-box; transform-origin: 50% 0; }
-.arm-l { animation: swayL 2.6s ease-in-out infinite; }
-.arm-r { animation: swayR 2.6s ease-in-out infinite; }
-@keyframes swayL { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-8deg); } }
-@keyframes swayR { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(8deg); } }
-
-.buddy-cheek { animation: cheek 3s ease-in-out infinite; }
-@keyframes cheek { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.8; } }
-
-.buddy-leaf { transform-box: fill-box; transform-origin: 50% 100%; animation: leafSway 3.5s ease-in-out infinite; }
-@keyframes leafSway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(6deg); } }
-
-.buddy-tear { transform-box: fill-box; transform-origin: top center; animation: tear 4s ease-in-out infinite; }
-@keyframes tear { 0%, 60% { transform: translateY(0) scale(0.6); opacity: 0; } 75% { opacity: 0.9; } 100% { transform: translateY(14px) scale(1); opacity: 0; } }
-
-/* 気分ごとの雰囲気 */
-.buddy-happy .buddy-hop { animation-duration: 1.5s; }
-.buddy-happy .buddy-hop { animation-name: hopJoy; }
-@keyframes hopJoy { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px) scaleY(1.04); } 55% { transform: translateY(-14px); } }
-.buddy-sleepy .buddy-hop { animation: breathe 4.5s ease-in-out infinite; }
-@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.96) translateY(3px); } }
-.buddy-sleepy .buddy-arm, .buddy-lonely .buddy-arm { animation-play-state: paused; }
-.buddy-lonely .buddy-hop { animation: sag 5s ease-in-out infinite; }
-@keyframes sag { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(4px); } }
-.buddy-surprised .buddy-hop { animation: pop2 0.5s ease-out; }
-@keyframes pop2 { 0% { transform: scale(1); } 40% { transform: scale(1.08) translateY(-4px); } 100% { transform: scale(1); } }
-
-/* Zzz と きらきら */
-.buddy-zzz { position: absolute; top: 20px; right: 26px; display: flex; gap: 2px; color: #9c8fd0; font-weight: 800; }
-.buddy-zzz span { animation: zzz 2.6s ease-in-out infinite; }
-.buddy-zzz span:nth-child(1) { font-size: 13px; animation-delay: 0s; }
-.buddy-zzz span:nth-child(2) { font-size: 17px; animation-delay: 0.5s; }
-.buddy-zzz span:nth-child(3) { font-size: 21px; animation-delay: 1s; }
-@keyframes zzz { 0% { transform: translateY(6px); opacity: 0; } 40% { opacity: 1; } 100% { transform: translateY(-14px); opacity: 0; } }
-.buddy-sparkle { position: absolute; inset: 0; pointer-events: none; color: #ffd35c; }
-.buddy-sparkle span { position: absolute; font-size: 20px; animation: twinkle 1.8s ease-in-out infinite; }
-.buddy-sparkle span:nth-child(1) { top: 24px; left: 22px; animation-delay: 0s; }
-.buddy-sparkle span:nth-child(2) { top: 40px; right: 20px; font-size: 16px; animation-delay: 0.6s; color: #ff9db6; }
-.buddy-sparkle span:nth-child(3) { top: 90px; left: 12px; font-size: 22px; animation-delay: 1.1s; color: #8b6ff0; }
-@keyframes twinkle { 0%, 100% { transform: scale(0.4) rotate(0); opacity: 0; } 50% { transform: scale(1) rotate(20deg); opacity: 1; } }
+/* 気分ごとの動き（表情は画像で切り替わるので、ここでは動きだけ変える） */
+.buddy-happy .buddy-img { animation: hopJoy 1.5s ease-in-out infinite; }
+@keyframes hopJoy { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px); } 55% { transform: translateY(-14px); } }
+.buddy-sleepy .buddy-img { animation: breathe 4.5s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.97) translateY(3px); } }
+.buddy-lonely .buddy-img { animation: sag 5s ease-in-out infinite; }
+@keyframes sag { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(5px); } }
+.buddy-surprised .buddy-img { animation: pop2 0.5s ease-out; }
+@keyframes pop2 { 0% { transform: scale(1); } 40% { transform: scale(1.07) translateY(-5px); } 100% { transform: scale(1); } }
 
 /* 好意アップのハート演出（page側でトグル） */
 .love-burst { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); pointer-events: none; z-index: 5; }
@@ -293,6 +255,6 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 
 /* アニメを控える設定を尊重 */
 @media (prefers-reduced-motion: reduce) {
-  .buddy-hop, .buddy-eyes, .buddy-arm, .buddy-shadow, .buddy-cheek, .buddy-leaf,
-  .px-star, .px-cloud, .buddy-zzz span, .buddy-sparkle span, .naming-egg { animation: none !important; }
+  .buddy-img, .buddy-shadow-el,
+  .px-star, .px-cloud, .naming-egg { animation: none !important; }
 }
