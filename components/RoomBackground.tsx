@@ -62,9 +62,12 @@ export function RoomBackground({ background }: { background?: BackgroundSetting 
     return <div className="bg bg-image" style={{ backgroundImage: `url(${background.data})` }} aria-hidden />;
   }
   const id = background?.type === "preset" ? background.id : DEFAULT_BG_ID;
+  // CSSのドット風シーンをフォールバックとして描画しつつ、
+  // public/backgrounds/{id}.png があればその画像レイヤーが上に重なる（無ければ透明でCSSが見える）。
   return (
     <div className={`bg bg-${id}`} aria-hidden>
       <PresetDecor id={id} />
+      <div className="bg-photo" style={{ backgroundImage: `url(/backgrounds/${id}.png)` }} />
     </div>
   );
 }

@@ -319,7 +319,9 @@ export default function Home() {
                 const active = activeBg.type === "preset" && activeBg.id === preset.id;
                 return (
                   <button key={preset.id} className={`bg-thumb ${active ? "active" : ""}`} onClick={() => { setBackground({ type: "preset", id: preset.id }); setBgPicker(false); }}>
-                    <span className={`bg bg-${preset.id}`} />
+                    <span className={`bg bg-${preset.id}`}>
+                      <span className="bg-photo" style={{ backgroundImage: `url(/backgrounds/${preset.id}.png)` }} />
+                    </span>
                     <b>{preset.label}</b>
                   </button>
                 );

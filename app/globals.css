@@ -68,6 +68,10 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 .bg-image { background-size: cover; background-position: center; image-rendering: pixelated; }
 .bg-image::after { display: none; }
 
+/* プリセット画像レイヤー：public/backgrounds/{id}.png があれば重なる。
+   無ければ透明のままで、下のCSSシーンがそのまま見える（フォールバック）。 */
+.bg-photo { position: absolute; inset: 0; z-index: 2; background-size: cover; background-position: center bottom; image-rendering: pixelated; }
+
 /* ---- ドット・デコレーション ---- */
 .px-window { position: absolute; top: 24px; left: 26px; width: 56px; height: 52px; background: #eaf6ff; border: 5px solid #f7f0e2; box-shadow: 0 5px 0 #b79a74; z-index: 1; }
 .px-window .px-sun { position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; background: #ffd35c; box-shadow: -4px 0 0 #ffd35c, 4px 0 0 #ffd35c, 0 -4px 0 #ffd35c, 0 4px 0 #ffd35c; }
