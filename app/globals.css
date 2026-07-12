@@ -94,8 +94,20 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 .px-sun-big { position: absolute; top: 66px; left: 50%; transform: translateX(-50%); width: 52px; height: 52px; background: #ffef9e; box-shadow: 0 0 0 6px rgba(255, 220, 140, 0.45); z-index: 1; }
 
 /* 背景変更ボタン */
-.bg-btn { position: absolute; top: 12px; right: 12px; z-index: 5; width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.82); cursor: pointer; font-size: 15px; line-height: 1; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14); transition: 0.15s; }
-.bg-btn:hover { background: #fff; transform: scale(1.06); }
+.bg-btn, .char-btn { position: absolute; top: 12px; z-index: 5; width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.82); cursor: pointer; font-size: 15px; line-height: 1; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14); transition: 0.15s; }
+.bg-btn { right: 12px; }
+.char-btn { right: 54px; }
+.bg-btn:hover, .char-btn:hover { background: #fff; transform: scale(1.06); }
+
+/* キャラ選択グリッド */
+.char-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.char-thumb { position: relative; border: 2px solid var(--line); border-radius: 16px; cursor: pointer; padding: 8px 6px 10px; background: white; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: 0.15s; }
+.char-thumb:hover { border-color: #b7a3f0; background: #faf7ff; }
+.char-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 3px #eee9fb; }
+.char-art { width: 100%; height: 92px; border-radius: 12px; background: linear-gradient(160deg, #eef5ff, #ffe9f2); display: grid; place-items: end center; overflow: hidden; }
+.char-art img { height: 88px; width: auto; image-rendering: pixelated; }
+.char-thumb b { font-size: 13px; margin-top: 4px; }
+.char-thumb small { font-size: 11px; color: var(--muted); }
 
 /* 背景ピッカー */
 .bg-picker-overlay { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 20px; background: rgba(50, 40, 75, 0.45); backdrop-filter: blur(8px); animation: fadein 0.3s ease-out; }

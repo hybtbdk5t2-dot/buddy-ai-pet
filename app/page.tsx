@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PetAvatar } from "@/components/PetAvatar";
 import { BG_PRESETS, DEFAULT_BACKGROUND, RoomBackground } from "@/components/RoomBackground";
+import { CHARACTERS } from "@/lib/characters";
 import { evolutionStage, sortMemories, todayKey } from "@/lib/engagement";
 import { detectLevelChange, processVisit } from "@/lib/engine/events";
 import { appendUserMessage, applyChatError, applyChatResult, applyDiaryBody } from "@/lib/engine/reducer";
@@ -57,6 +58,7 @@ export default function Home() {
   const [editing, setEditing] = useState<{ id: string; title: string; summary: string } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [bgPicker, setBgPicker] = useState(false);
+  const [charPicker, setCharPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
@@ -228,6 +230,12 @@ export default function Home() {
     reader.readAsText(file);
   }
 
+  // ---- キャラクターの選択（見た目＋芯の口調が切り替わる） ----
+  function setCharacter(id: string) {
+    setPet((c) => ({ ...c, character: id }));
+    setCharPicker(false);
+  }
+
   // ---- 背景の設定 ----
   function setBackground(bg: BackgroundSetting) {
     setPet((c) => ({ ...c, background: bg }));
@@ -261,6 +269,30 @@ export default function Home() {
               <p>これから、たくさんの思い出をいっしょに。</p>
             </div>
           )}
+        </div>
+      )}
+
+      {charPicker && (
+        <div className="bg-picker-overlay" onClick={() => setCharPicker(false)}>
+          <div className="bg-picker" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-picker-head">
+              <h2>キャラクターをえらぶ</h2>
+              <button className="bg-close" onClick={() => setCharPicker(false)} aria-label="閉じる">✕</button>
+            </div>
+            <p className="bg-picker-note">見た目と「芯の口調」が切り替わります。育てた個性や思い出はそのまま引き継がれます。</p>
+            <div className="char-grid">
+              {CHARACTERS.map((c) => {
+                const active = (pet.character ?? "robot") === c.id;
+                return (
+                  <button key={c.id} className={`char-thumb ${active ? "active" : ""}`} onClick={() => setCharacter(c.id)}>
+                    <span className="char-art"><img src={`/characters/${c.id}/happy.png`} alt="" /></span>
+                    <b>{c.label}</b>
+                    <small>{c.persona}</small>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -326,10 +358,11 @@ export default function Home() {
 
         <section className="room">
           <RoomBackground background={pet.background} />
-          <PetAvatar mood={pet.mood} level={pet.level} />
+          <PetAvatar mood={pet.mood} character={pet.character} />
           {heartBurst > 0 && (
             <div className="love-burst" key={heartBurst}><span>♥</span><span>♥</span><span>♥</span></div>
           )}
+          <button className="char-btn" onClick={() => setCharPicker(true)} aria-label="キャラを変える" title="キャラを変える">🐾</button>
           <button className="bg-btn" onClick={() => setBgPicker(true)} aria-label="背景を変える" title="背景を変える">🖼</button>
           <div className={`speech ${loading ? "thinking" : ""}`}>
             {loading
