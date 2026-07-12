@@ -59,22 +59,32 @@ export async function POST(request: Request) {
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const recentMessages = body.pet.messages.slice(-10).map((m) => `${m.role === "user" ? "ユーザー" : body.pet!.name}: ${m.content}`).join("\n");
-  const memories = body.pet.memories.slice(0, 8).map((m) => `- ${m.title}: ${m.summary}`).join("\n") || "まだない";
+  const memories = [...body.pet.memories]
+    .sort((a, b) => b.importance - a.importance)
+    .slice(0, 8)
+    .map((m) => `- ${m.title}: ${m.summary}`)
+    .join("\n") || "まだない";
+  const recentDiary = body.pet.diary.slice(0, 3).map((d) => `- ${d.date}: ${d.body.slice(0, 80)}`).join("\n") || "まだない";
 
-  const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    instructions: `あなたはAIペット「${body.pet.name}」。便利なアシスタントではなく、ユーザーと一緒に育つ小さな相棒です。日本語で1〜3文、親しみがあり、過剰に幼児的ではない話し方をしてください。知ったふりをせず、重要な達成・決断・初体験だけを思い出候補にします。数値変化は控えめにしてください。`,
-    input: `現在: Lv.${body.pet.level}, 親密度${body.pet.affection}, 気分${body.pet.mood}\n思い出:\n${memories}\n最近の会話:\n${recentMessages}\n\nユーザー: ${body.message}`,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "buddy_chat_result",
-        strict: true,
-        schema
+  try {
+    const response = await client.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      instructions: `あなたはAIペット「${body.pet.name}」。便利なアシスタントではなく、ユーザーと一緒に育つ小さな相棒です。日本語で1〜3文、親しみがあり、過剰に幼児的ではない話し方をしてください。思い出や日記に残っている出来事は、自然な形で会話に織り込んで構いません。知ったふりをせず、重要な達成・決断・初体験だけを思い出候補にします。数値変化は控えめにしてください。`,
+      input: `現在: Lv.${body.pet.level}, 親密度${body.pet.affection}, 気分${body.pet.mood}\n思い出:\n${memories}\n最近の日記:\n${recentDiary}\n最近の会話:\n${recentMessages}\n\nユーザー: ${body.message}`,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "buddy_chat_result",
+          strict: true,
+          schema
+        }
       }
-    }
-  });
+    });
 
-  const result = JSON.parse(response.output_text) as ChatResult;
-  return NextResponse.json({ ...result, mode: "openai" });
+    const result = JSON.parse(response.output_text) as ChatResult;
+    return NextResponse.json({ ...result, mode: "openai" });
+  } catch (error) {
+    console.error("OpenAI呼び出しに失敗したためデモモードで応答します", error);
+    return NextResponse.json({ ...demoReply(body.message, body.pet), mode: "demo-fallback" });
+  }
 }

@@ -47,3 +47,12 @@ export function demoReply(message: string, pet: PetState): ChatResult {
     diaryLine: `今日は「${message.slice(0, 38)}」という話をしてくれた。もっと君のことを知りたい。`,
   };
 }
+
+export function demoDiary(pet: PetState, todaysUserMessages: string[]): string {
+  if (todaysUserMessages.length === 0) {
+    return `今日は静かな一日だった。${pet.name}は、君が来てくれるのをずっと待っていたよ。`;
+  }
+  const topics = todaysUserMessages.slice(-3).map((m) => `「${m.slice(0, 30)}」`).join("、");
+  const closing = pet.affection >= 50 ? "君と過ごす時間が、いちばんの宝物になってきた。" : "もっと君のことを知りたいと思った一日だった。";
+  return `今日は${topics}という話を聞かせてもらった。${pet.name}なりに、ひとつひとつ大事にしまっておいた。${closing}`;
+}
