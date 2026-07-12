@@ -3,14 +3,11 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PetAvatar } from "@/components/PetAvatar";
 import { BG_PRESETS, DEFAULT_BACKGROUND, RoomBackground } from "@/components/RoomBackground";
-import {
-  computeVisit,
-  evolutionStage,
-  proactiveGreeting,
-  sortMemories,
-  todayKey,
-} from "@/lib/engagement";
-import type { BackgroundSetting, ChatResult, DiaryEntry, Memory, Message, PetState } from "@/lib/types";
+import { evolutionStage, sortMemories, todayKey } from "@/lib/engagement";
+import { detectLevelChange, processVisit } from "@/lib/engine/events";
+import { appendUserMessage, applyChatError, applyChatResult, applyDiaryBody } from "@/lib/engine/reducer";
+import { validatePet } from "@/lib/engine/validate";
+import type { BackgroundSetting, ChatResult, PetState } from "@/lib/types";
 
 const STORAGE_KEY = "buddy-ai-pet-v01";
 const initialState: PetState = {
@@ -25,7 +22,6 @@ const initialState: PetState = {
   diary: [],
 };
 
-const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const uid = () => crypto.randomUUID();
 
 const TRAIT_META: Record<string, [string, string]> = {
@@ -73,18 +69,19 @@ export default function Home() {
     try { loaded = JSON.parse(saved) as PetState; } catch { setNaming("input"); setHydrated(true); return; }
 
     const today = todayKey();
-    const visit = computeVisit(loaded, today);
-    const withMeta: PetState = {
+    const visit = processVisit(loaded, today);
+    const withMeta: PetState = validatePet({
       ...loaded,
       bornAt: loaded.bornAt ?? loaded.messages?.[0]?.createdAt ?? new Date().toISOString(),
       streak: visit.streak,
       lastVisitDate: today,
-    };
-    if (visit.isNewDay && !visit.firstEver) {
-      const greet: Message = { id: uid(), role: "assistant", content: proactiveGreeting(loaded, visit), createdAt: new Date().toISOString() };
-      withMeta.messages = [...loaded.messages, greet];
-      withMeta.mood = visit.daysAway >= 4 ? "lonely" : "happy";
-    }
+      ...(visit.greeting
+        ? {
+            messages: [...loaded.messages, { id: uid(), role: "assistant", content: visit.greeting, createdAt: new Date().toISOString() }],
+            mood: visit.moodOverride ?? loaded.mood,
+          }
+        : {}),
+    });
     prevLevel.current = withMeta.level; // ロードによるレベル変化を「レベルアップ」と誤検知しない
     setPet(withMeta);
     setHydrated(true);
@@ -107,10 +104,9 @@ export default function Home() {
   // レベルアップ／進化の検知（読み込み完了後のみ。読み込みによる変化は演出しない）
   useEffect(() => {
     if (!hydrated) return;
-    if (pet.level > prevLevel.current) {
-      const before = evolutionStage(prevLevel.current);
-      const after = evolutionStage(pet.level);
-      setLevelUp({ level: pet.level, title: after.title, evolved: after.stage > before.stage });
+    const event = detectLevelChange(prevLevel.current, pet.level);
+    if (event && (event.type === "levelup" || event.type === "evolve")) {
+      setLevelUp({ level: event.level, title: event.type === "evolve" ? event.title : evolutionStage(event.level).title, evolved: event.type === "evolve" });
     }
     prevLevel.current = pet.level;
   }, [pet.level, hydrated]);
@@ -129,8 +125,8 @@ export default function Home() {
     if (!text || loading) return;
     setInput("");
     setLoading(true);
-    const userMessage: Message = { id: uid(), role: "user", content: text, createdAt: new Date().toISOString() };
-    const nextPet = { ...pet, messages: [...pet.messages, userMessage] };
+    // 状態更新はすべて Pet Engine 経由（検証込み）。まずユーザー発話を追加。
+    const nextPet = appendUserMessage(pet, text);
     setPet(nextPet);
 
     try {
@@ -139,42 +135,10 @@ export default function Home() {
       const result = (await response.json()) as ChatResult & { mode?: string };
       setMode(result.mode || null);
       if (result.affectionDelta > 0) setHeartBurst((n) => n + 1);
-
-      setPet((current) => {
-        const totalExp = current.experience + result.experienceDelta;
-        const level = Math.floor(totalExp / 100) + 1;
-        const memory: Memory | null = result.memory?.shouldSave ? {
-          id: uid(), title: result.memory.title, summary: result.memory.summary, emotion: result.memory.emotion,
-          importance: result.memory.importance, occurredAt: new Date().toISOString()
-        } : null;
-        const today = new Date().toISOString().slice(0, 10);
-        const existingDiary = current.diary.find((d) => d.date === today);
-        let diary: DiaryEntry[] = current.diary;
-        if (result.diaryLine) {
-          diary = existingDiary
-            ? current.diary.map((d) => d.id === existingDiary.id ? { ...d, body: `${d.body}\n${result.diaryLine}` } : d)
-            : [{ id: uid(), date: today, body: result.diaryLine }, ...current.diary];
-        }
-        const assistantMessage: Message = { id: uid(), role: "assistant", content: result.reply, createdAt: new Date().toISOString() };
-        const p = result.personalityDelta || {};
-        return {
-          ...current,
-          level,
-          experience: totalExp,
-          affection: clamp(current.affection + result.affectionDelta),
-          mood: result.mood,
-          personality: {
-            music: clamp(current.personality.music + (p.music || 0)), movement: clamp(current.personality.movement + (p.movement || 0)),
-            knowledge: clamp(current.personality.knowledge + (p.knowledge || 0)), kindness: clamp(current.personality.kindness + (p.kindness || 0)),
-            curiosity: clamp(current.personality.curiosity + (p.curiosity || 0)),
-          },
-          messages: [...current.messages, assistantMessage],
-          memories: memory ? [memory, ...current.memories].slice(0, 100) : current.memories,
-          diary,
-        };
-      });
+      // AIの結果は「提案」。エンジンが適用・検証して確定する。
+      setPet((current) => applyChatResult(current, result));
     } catch {
-      setPet((current) => ({ ...current, mood: "lonely", messages: [...current.messages, { id: uid(), role: "assistant", content: "うまく言葉が出てこなかった……。もう一度だけ話しかけてもらえる？", createdAt: new Date().toISOString() }] }));
+      setPet((current) => applyChatError(current));
     } finally {
       setLoading(false);
     }
@@ -205,14 +169,7 @@ export default function Home() {
       if (!response.ok) throw new Error("日記を取得できませんでした");
       const result = (await response.json()) as { body: string; mode: string };
       setMode(result.mode);
-      setPet((current) => {
-        const today = new Date().toISOString().slice(0, 10);
-        const existing = current.diary.find((d) => d.date === today);
-        const diary: DiaryEntry[] = existing
-          ? current.diary.map((d) => (d.id === existing.id ? { ...d, body: result.body } : d))
-          : [{ id: uid(), date: today, body: result.body }, ...current.diary];
-        return { ...current, diary };
-      });
+      setPet((current) => applyDiaryBody(current, result.body));
     } catch {
       alert("日記をうまく書けなかったみたい。もう一度試してみてね。");
     } finally {
