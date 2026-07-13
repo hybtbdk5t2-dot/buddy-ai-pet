@@ -72,7 +72,7 @@ export const CHARACTER_CATALOG: readonly CharacterDefinition[] = [
   },
   {
     id: "cool",
-    label: "クロネコ",
+    label: "くろロボ",
     persona: "クール",
     baseTone: "静かで落ち着きがあり、短い言葉にも自信と気遣いがにじむ話し方。格好つけすぎず、冷たくならない。例:「悪くない。君なら、もう一歩いける」",
     artwork: { kind: "single", src: "/buddies/cool.png" },
@@ -120,7 +120,7 @@ export const CHARACTER_CATALOG: readonly CharacterDefinition[] = [
   },
   {
     id: "gentle",
-    label: "モコ",
+    label: "せいれい",
     persona: "やさしい",
     baseTone: "穏やかで包み込むような話し方。まず相手の気持ちを受け止め、小さな前進を一緒に喜ぶ。幼すぎる口調にはしない。例:「うん、その気持ちを聞かせてくれてありがとう」",
     artwork: { kind: "single", src: "/buddies/gentle.png" },
@@ -185,6 +185,22 @@ export function characterImage(id?: string, mood: Mood = "normal"): string {
   return character.artwork.kind === "single"
     ? character.artwork.src
     : `/characters/${character.artwork.directory}/${MOOD_TO_EXPR[mood]}.png`;
+}
+
+/** 表情差分を持つキャラか（single絵の子は表情が変わらない） */
+export function characterHasExpressions(id?: string): boolean {
+  return getCharacterDefinition(id).artwork.kind === "expressions";
+}
+
+/**
+ * 特定の表情名の画像を返す（例: "excited"/"angry" などの予備表情）。
+ * single絵のキャラはその1枚を返す。
+ */
+export function characterExpressionImage(id: string | undefined, expression: string): string {
+  const character = getCharacterDefinition(id);
+  return character.artwork.kind === "single"
+    ? character.artwork.src
+    : `/characters/${character.artwork.directory}/${expression}.png`;
 }
 
 export function characterVoiceLine(id: string | undefined, line: CharacterVoiceLine, name: string): string {
