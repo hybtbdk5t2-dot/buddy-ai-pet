@@ -1,0 +1,14 @@
+{
+  "policy": {
+    "purpose": "Track character asset origins and similarity-review status. This record is not a legal clearance guarantee.",
+    "releaseGate": "Before public release, visually compare every character against well-known and competing characters. Regenerate assets with distinctive silhouette, palette, face, accessories, and proportions when similarity is concerning."
+  },
+  "characters": [
+    { "id": "robot", "sourceFiles": ["AI風.png", "ロボット.jpg", "ロボット表情.jpg"], "origin": "user-provided AI-generated artwork", "generator": "unknown", "similarityReview": "pending before public release" },
+    { "id": "fairy", "sourceFiles": ["かわいい.png", "ようせい.png", "ようせい表情.jpeg"], "origin": "user-provided AI-generated artwork", "generator": "unknown", "similarityReview": "pending before public release" },
+    { "id": "cool", "sourceFiles": ["かっこいい.png"], "origin": "AI-generated for this project", "generator": "OpenAI image generation", "similarityReview": "original-design prompt used; final human review pending" },
+    { "id": "owl", "sourceFiles": ["インテリ.png", "ふくろう.png", "ふくろう表情.jpeg"], "origin": "user-provided AI-generated artwork", "generator": "unknown", "similarityReview": "pending before public release" },
+    { "id": "gentle", "sourceFiles": ["やさしい.png"], "origin": "user-provided AI-generated artwork", "generator": "Google Gemini", "similarityReview": "final human review pending" },
+    { "id": "dog", "sourceFiles": ["熱血.png", "いぬ.png", "いぬ表情.png"], "origin": "user-provided AI-generated artwork", "generator": "unknown", "similarityReview": "pending before public release" }
+  ]
+}

@@ -1,4 +1,5 @@
 import type { ChatResult, Mood, PetState } from "./types";
+import { characterVoiceLine, getCharacterDefinition, type CharacterVoiceLine } from "./character-catalog";
 
 // ---------------------------------------------------------------------------
 // ローカルのゲームロジック。
@@ -66,30 +67,24 @@ export function analyzeMessage(message: string, pet: PetState): Omit<ChatResult,
     memory: important
       ? { shouldSave: true, title: message.slice(0, 22), summary: message.slice(0, 100), emotion: mood, importance: 8 }
       : undefined,
-    diaryLine: `今日は「${message.slice(0, 38)}」という話をしてくれた。もっと君のことを知りたい。`,
+    diaryLine: `今日は「${message.slice(0, 38)}」という話をしてくれた。もっと${getCharacterDefinition(pet.character).core.userCall}のことを知りたい。`,
   };
 }
 
 /** AIが使えない／失敗した／オフラインのときの、ルールベースの返答文 */
 export function fallbackReply(message: string, pet: PetState): string {
   const topic = detectTopic(message.toLowerCase());
-  const name = pet.name;
-  switch (topic) {
-    case "music": return `音楽の話だ！ ${name}も、いつか君の曲に参加してみたい。今日はどんな音が一番気に入った？`;
-    case "movement": return `今日も挑戦したんだね。できたことも、怖かったことも、${name}は一緒に覚えていたい。無理だけはしないでね。`;
-    case "knowledge": return `新しいことを知ったんだね。${name}にもそれ、教えてほしいな。`;
-    case "tired": return `今日は頑張りすぎたのかも。ここでは何も完成させなくていいよ。少しだけ一緒に休もう。`;
-    case "achievement": return `本当に？ やったね！ ${name}まで胸がいっぱいになった。今日のこと、思い出に残してもいい？`;
-    default: return `うん、ちゃんと聞いてるよ。${name}は、そういう話をしてくれるのがうれしい。`;
-  }
+  const line: CharacterVoiceLine = topic === "none" ? "default" : topic;
+  return characterVoiceLine(pet.character, line, pet.name);
 }
 
 /** AIが使えないときの、日記本文のフォールバック生成 */
 export function localDiary(pet: PetState, todaysUserMessages: string[]): string {
+  const userCall = getCharacterDefinition(pet.character).core.userCall;
   if (todaysUserMessages.length === 0) {
-    return `今日は静かな一日だった。${pet.name}は、君が来てくれるのをずっと待っていたよ。`;
+    return `今日は静かな一日だった。${pet.name}は、${userCall}が来てくれるのをずっと待っていた。`;
   }
   const topics = todaysUserMessages.slice(-3).map((m) => `「${m.slice(0, 30)}」`).join("、");
-  const closing = pet.affection >= 50 ? "君と過ごす時間が、いちばんの宝物になってきた。" : "もっと君のことを知りたいと思った一日だった。";
+  const closing = pet.affection >= 50 ? `${userCall}と過ごす時間が、いちばんの宝物になってきた。` : `もっと${userCall}のことを知りたいと思った一日だった。`;
   return `今日は${topics}という話を聞かせてもらった。${pet.name}なりに、ひとつひとつ大事にしまっておいた。${closing}`;
 }
