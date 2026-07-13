@@ -6,9 +6,9 @@ import { fallbackReply } from "./game";
 import type { PetState } from "./types";
 
 describe("character catalog", () => {
-  it("offers six unique character choices", () => {
-    expect(CHARACTER_CATALOG).toHaveLength(6);
-    expect(new Set(CHARACTER_CATALOG.map((character) => character.id)).size).toBe(6);
+  it("offers five unique character choices", () => {
+    expect(CHARACTER_CATALOG).toHaveLength(5);
+    expect(new Set(CHARACTER_CATALOG.map((character) => character.id)).size).toBe(5);
   });
 
   it("keeps the dog unmistakably hot-blooded", () => {
@@ -25,7 +25,7 @@ describe("character catalog", () => {
 
   it("uses a single illustration safely for characters without expression sets", () => {
     expect(characterImage("cool", "happy")).toBe("/buddies/cool.png");
-    expect(characterImage("gentle", "sleepy")).toBe("/buddies/gentle.png");
+    expect(characterImage("cool", "sleepy")).toBe("/buddies/cool.png");
     expect(characterImage("dog", "happy")).toBe("/characters/dog/happy.png");
   });
 
