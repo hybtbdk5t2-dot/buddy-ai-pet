@@ -2,6 +2,7 @@ import { checkBudget, estimateTokens, recordUsage } from "./budget";
 import { cacheKey, getCached, setCached } from "./cache";
 import { ClaudeProvider } from "./providers/claude";
 import { GeminiProvider } from "./providers/gemini";
+import { GroqProvider } from "./providers/groq";
 import { LocalProvider } from "./providers/local";
 import { OpenAIProvider } from "./providers/openai";
 import { OpenRouterProvider } from "./providers/openrouter";
@@ -15,12 +16,13 @@ const REGISTRY: Record<string, () => AIProvider> = {
   openai: () => new OpenAIProvider(),
   gemini: () => new GeminiProvider(),
   claude: () => new ClaudeProvider(),
+  groq: () => new GroqProvider(),
   openrouter: () => new OpenRouterProvider(),
   local: () => new LocalProvider(),
 };
 
-// 自動選択・フォールバックの既定優先順位（#10: Gemini → OpenRouter → Local …）。
-const DEFAULT_ORDER = ["gemini", "openrouter", "openai", "claude", "local"];
+// 自動選択・フォールバックの既定優先順位。
+const DEFAULT_ORDER = ["gemini", "groq", "openrouter", "openai", "claude", "local"];
 
 /**
  * 使用するプロバイダーの「試行順チェーン」を環境変数から決める。
