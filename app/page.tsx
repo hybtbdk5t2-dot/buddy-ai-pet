@@ -358,7 +358,7 @@ export default function Home() {
                 {CHARACTERS.map((c) => (
                   <button type="button" key={c.id} className={`name-char ${nameChar === c.id ? "active" : ""}`} onClick={() => setNameChar(c.id)}>
                     <img src={characterImage(c.id, "normal")} alt="" />
-                    <span>{c.label}</span>
+                    <span>{c.persona}</span>
                   </button>
                 ))}
               </div>
@@ -389,8 +389,7 @@ export default function Home() {
                 return (
                   <button key={c.id} className={`char-thumb ${active ? "active" : ""}`} onClick={() => setCharacter(c.id)}>
                     <span className="char-art"><img src={characterImage(c.id, "happy")} alt="" /></span>
-                    <b>{c.label}</b>
-                    <small>{c.persona}</small>
+                    <b>{c.persona}</b>
                   </button>
                 );
               })}

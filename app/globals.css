@@ -124,8 +124,12 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 .bg-thumb.upload .bg-upload { display: grid; place-items: center; font-size: 26px; color: var(--accent); background: #f5f1fd; position: absolute; inset: 0; }
 
 /* ---------- キャラ（ドット絵ロボット：気分ごとの表情画像） ---------- */
-.buddy { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: 200px; height: 205px; z-index: 2; display: grid; place-items: end center; }
-.buddy-img { height: 184px; width: auto; image-rendering: pixelated; position: relative; z-index: 2; transform-origin: 50% 100%; cursor: pointer; -webkit-user-select: none; user-select: none; animation: idle 3.4s ease-in-out infinite; }
+.buddy { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: 200px; height: 205px; z-index: 2; }
+.buddy-imgwrap { position: absolute; inset: 0; transform-origin: 50% 100%; cursor: pointer; -webkit-user-select: none; user-select: none; animation: idle 3.4s ease-in-out infinite; }
+.buddy-img { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); height: 184px; width: auto; image-rendering: pixelated; z-index: 2; }
+/* 表情切り替えのクロスフェード上レイヤー */
+.buddy-img-top { opacity: 0; transition: opacity 0.28s ease; z-index: 3; }
+.buddy-img-top.shown { opacity: 1; }
 /* 呼吸するような上下＋左右ゆらぎ＋着地のつぶれ */
 @keyframes idle {
   0%, 100% { transform: translateY(0) rotate(0deg) scaleY(1); }
@@ -137,19 +141,19 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 @keyframes shadowPulse { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.24; } 25%, 75% { transform: translateX(-50%) scale(0.86); opacity: 0.16; } 50% { transform: translateX(-50%) scale(1); opacity: 0.24; } }
 
 /* 気分ごとの動き（表情は画像で切り替わる。ここでは動きの質を変える） */
-.buddy-happy .buddy-img { animation: hopJoy 1.4s ease-in-out infinite; }
+.buddy-happy .buddy-imgwrap { animation: hopJoy 1.4s ease-in-out infinite; }
 @keyframes hopJoy { 0%, 100% { transform: translateY(0) scaleY(1); } 35% { transform: translateY(-16px) scaleY(1.05); } 55% { transform: translateY(0) scaleY(0.9); } 65% { transform: translateY(0) scaleY(1.02); } }
-.buddy-sleepy .buddy-img { animation: breathe 4.5s ease-in-out infinite; }
+.buddy-sleepy .buddy-imgwrap { animation: breathe 4.5s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { transform: scaleY(1) translateY(0); } 50% { transform: scaleY(0.96) translateY(4px); } }
-.buddy-lonely .buddy-img { animation: sag 5s ease-in-out infinite; }
+.buddy-lonely .buddy-imgwrap { animation: sag 5s ease-in-out infinite; }
 @keyframes sag { 0%, 100% { transform: translateY(3px) rotate(-1deg); } 50% { transform: translateY(6px) rotate(1deg); } }
-.buddy-surprised .buddy-img { animation: pop2 0.5s ease-out; }
+.buddy-surprised .buddy-imgwrap { animation: pop2 0.5s ease-out; }
 @keyframes pop2 { 0% { transform: scale(1); } 40% { transform: scale(1.08) translateY(-6px); } 100% { transform: scale(1); } }
 
 /* タップ反応：ぴょこんと跳ねてつぶれる（無限アニメを上書きする一発モーション） */
-.buddy-img.poking { animation: pokeBounce 0.5s ease-out; }
+.buddy-imgwrap.poking { animation: pokeBounce 0.5s ease-out; }
 @keyframes pokeBounce { 0% { transform: scale(1); } 25% { transform: scale(1.12, 0.9) translateY(-8px); } 55% { transform: scale(0.94, 1.08); } 80% { transform: scale(1.02, 0.98); } 100% { transform: scale(1); } }
-.buddy:active .buddy-img { filter: brightness(1.04); }
+.buddy-imgwrap:active { filter: brightness(1.06); }
 
 /* タップ時のきらめき */
 .poke-fx { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
@@ -309,6 +313,7 @@ h1 { margin: 2px 0 0; font-size: 26px; letter-spacing: 0.01em; }
 
 /* アニメを控える設定を尊重 */
 @media (prefers-reduced-motion: reduce) {
-  .buddy-img, .buddy-shadow-el,
+  .buddy-imgwrap, .buddy-shadow-el,
   .px-star, .px-cloud, .naming-egg { animation: none !important; }
+  .buddy-img-top { transition: none !important; }
 }
