@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PetAvatar } from "@/components/PetAvatar";
 import { BG_PRESETS, DEFAULT_BACKGROUND, RoomBackground } from "@/components/RoomBackground";
+import { characterImage, characterVoiceLine } from "@/lib/character-catalog";
 import { CHARACTERS } from "@/lib/characters";
+import { cloudConfigured, getCloudUser, loadCloudSave, saveCloudPet, sendCloudSignInLink, signOutCloud } from "@/lib/cloud";
 import { evolutionStage, sortMemories, todayKey } from "@/lib/engagement";
 import { detectLevelChange, processVisit } from "@/lib/engine/events";
 import { appendUserMessage, applyChatError, applyChatResult, applyDiaryBody } from "@/lib/engine/reducer";
@@ -13,6 +15,7 @@ import { driftEmotion, emotionLabel, ensurePersona, generateCurrentLife, syncPer
 import type { BackgroundSetting, ChatResult, PetState } from "@/lib/types";
 
 const STORAGE_KEY = "buddy-ai-pet-v01";
+const LOCAL_UPDATED_KEY = "buddy-ai-pet-v01-updated-at";
 const initialState: PetState = {
   name: "Buddy",
   level: 1,
@@ -62,6 +65,10 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [bgPicker, setBgPicker] = useState(false);
   const [charPicker, setCharPicker] = useState(false);
+  const [cloudReady, setCloudReady] = useState(!cloudConfigured());
+  const [cloudAccount, setCloudAccount] = useState<string | null>(null);
+  const [cloudEmail, setCloudEmail] = useState("");
+  const [syncStatus, setSyncStatus] = useState<"off" | "checking" | "saved" | "saving" | "link-sent" | "error">(cloudConfigured() ? "checking" : "off");
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
@@ -105,15 +112,62 @@ export default function Home() {
     setHydrated(true);
   }, []);
 
+  // Supabase設定時だけ、ログイン中のクラウドデータと端末データの新しい方を採用する。
+  useEffect(() => {
+    if (!hydrated || !cloudConfigured() || cloudReady) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const user = await getCloudUser();
+        if (cancelled) return;
+        if (!user) {
+          setSyncStatus("off");
+          setCloudReady(true);
+          return;
+        }
+        setCloudAccount(user.email ?? "ログイン済み");
+        const cloud = await loadCloudSave();
+        if (cancelled) return;
+        const localUpdatedAt = Number(localStorage.getItem(LOCAL_UPDATED_KEY) ?? 0);
+        const cloudUpdatedAt = cloud ? new Date(cloud.updatedAt).getTime() : 0;
+        if (cloud && cloudUpdatedAt > localUpdatedAt) {
+          const restored = validatePet(cloud.pet);
+          prevLevel.current = restored.level;
+          setPet(restored);
+          setNaming("hidden");
+        } else if (!cloud) {
+          await saveCloudPet(pet);
+        }
+        setSyncStatus("saved");
+      } catch {
+        setSyncStatus("error");
+      } finally {
+        if (!cancelled) setCloudReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [hydrated, cloudReady]);
+
   useEffect(() => {
     if (!hydrated || naming === "input") return; // 読み込み完了までは保存しない（初期状態での上書き防止）
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(pet));
+      if (cloudReady) localStorage.setItem(LOCAL_UPDATED_KEY, String(Date.now()));
     } catch {
       // 主に背景画像が大きすぎて保存容量を超えたケース。落とさず通知する。
       alert("データを保存できませんでした。背景画像が大きすぎる可能性があります。小さめの画像を選んでください。");
     }
-  }, [pet, naming, hydrated]);
+  }, [pet, naming, hydrated, cloudReady]);
+
+  // ログイン中は変更を少しまとめてクラウドへ保存。失敗しても端末保存は維持する。
+  useEffect(() => {
+    if (!hydrated || !cloudReady || !cloudAccount || naming === "input") return;
+    setSyncStatus("saving");
+    const timer = window.setTimeout(() => {
+      void saveCloudPet(pet).then(() => setSyncStatus("saved")).catch(() => setSyncStatus("error"));
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [pet, naming, hydrated, cloudReady, cloudAccount]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -175,7 +229,7 @@ export default function Home() {
       bornAt: now,
       streak: 1,
       lastVisitDate: todayKey(),
-      messages: [{ id: "welcome", role: "assistant", content: `${name}……うん、いい名前。今日から${name}として、君と一緒に育っていくよ。まずは今日のことを聞かせて？`, createdAt: now }],
+      messages: [{ id: "welcome", role: "assistant", content: characterVoiceLine(nameChar, "welcome", name), createdAt: now }],
     }));
     prevLevel.current = 1;
     setNaming("born");
@@ -254,6 +308,29 @@ export default function Home() {
     setCharPicker(false);
   }
 
+  async function requestCloudSignIn(event: FormEvent) {
+    event.preventDefault();
+    const email = cloudEmail.trim();
+    if (!email) return;
+    try {
+      setSyncStatus("checking");
+      await sendCloudSignInLink(email);
+      setSyncStatus("link-sent");
+    } catch {
+      setSyncStatus("error");
+    }
+  }
+
+  async function disconnectCloud() {
+    try {
+      await signOutCloud();
+      setCloudAccount(null);
+      setSyncStatus("off");
+    } catch {
+      setSyncStatus("error");
+    }
+  }
+
   // ---- 背景の設定 ----
   function setBackground(bg: BackgroundSetting) {
     setPet((c) => ({ ...c, background: bg }));
@@ -274,13 +351,13 @@ export default function Home() {
         <div className="naming-overlay">
           {naming === "input" ? (
             <form className="naming-card" onSubmit={completeNaming}>
-              <div className="naming-preview"><img src={`/characters/${nameChar}/happy.png`} alt="" /></div>
+              <div className="naming-preview"><img src={characterImage(nameChar, "happy")} alt="" /></div>
               <h2>あたらしい相棒をむかえよう</h2>
               <p>すがたと名前をえらんでね。</p>
               <div className="name-chars">
                 {CHARACTERS.map((c) => (
                   <button type="button" key={c.id} className={`name-char ${nameChar === c.id ? "active" : ""}`} onClick={() => setNameChar(c.id)}>
-                    <img src={`/characters/${c.id}/normal.png`} alt="" />
+                    <img src={characterImage(c.id, "normal")} alt="" />
                     <span>{c.label}</span>
                   </button>
                 ))}
@@ -290,7 +367,7 @@ export default function Home() {
             </form>
           ) : (
             <div className="naming-card naming-born">
-              <div className="naming-preview born"><img src={`/characters/${pet.character ?? "robot"}/happy.png`} alt="" /></div>
+              <div className="naming-preview born"><img src={characterImage(pet.character, "happy")} alt="" /></div>
               <h2>{pet.name}が生まれた！</h2>
               <p>これから、たくさんの思い出をいっしょに。</p>
             </div>
@@ -311,7 +388,7 @@ export default function Home() {
                 const active = (pet.character ?? "robot") === c.id;
                 return (
                   <button key={c.id} className={`char-thumb ${active ? "active" : ""}`} onClick={() => setCharacter(c.id)}>
-                    <span className="char-art"><img src={`/characters/${c.id}/happy.png`} alt="" /></span>
+                    <span className="char-art"><img src={characterImage(c.id, "happy")} alt="" /></span>
                     <b>{c.label}</b>
                     <small>{c.persona}</small>
                   </button>
@@ -486,13 +563,34 @@ export default function Home() {
 
             <div className="data-tools">
               <h3>データの保全</h3>
-              <p>思い出はこの端末に保存されます。ときどき書き出して、大切に残しておきましょう。</p>
+              <p>思い出はこの端末に自動保存されます。ときどき書き出して、大切に残しておきましょう。</p>
               <div className="data-buttons">
                 <button className="data-export" onClick={exportData}>⬇ バックアップを書き出す</button>
                 <button className="data-import" onClick={() => fileRef.current?.click()}>⬆ バックアップから復元</button>
               </div>
               <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importData} />
             </div>
+
+            {cloudConfigured() && (
+              <div className="cloud-tools">
+                <h3>☁ クラウド保存</h3>
+                {cloudAccount ? (
+                  <>
+                    <p><b>{cloudAccount}</b><br />{syncStatus === "saving" ? "保存しています…" : syncStatus === "error" ? "通信できませんでした。端末には保存されています。" : "クラウドと接続済みです。"}</p>
+                    <button type="button" onClick={disconnectCloud}>接続を解除</button>
+                  </>
+                ) : (
+                  <form onSubmit={requestCloudSignIn}>
+                    <p>{syncStatus === "link-sent" ? "確認メールを送りました。メール内のリンクを開いてください。" : "メールで接続すると、別の端末でも同じBuddyに会えます。"}</p>
+                    <div className="cloud-signin">
+                      <input type="email" value={cloudEmail} onChange={(e) => setCloudEmail(e.target.value)} placeholder="メールアドレス" required />
+                      <button disabled={syncStatus === "checking"}>{syncStatus === "checking" ? "送信中…" : "接続メールを送る"}</button>
+                    </div>
+                    {syncStatus === "error" && <small>接続できませんでした。設定または通信状況を確認してください。</small>}
+                  </form>
+                )}
+              </div>
+            )}
           </div>}
         </section>
       </section>
