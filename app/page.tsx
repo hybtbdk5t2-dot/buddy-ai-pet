@@ -40,6 +40,7 @@ const MODE_LABEL: Record<string, string> = {
   openai: "OpenAIモード",
   gemini: "Geminiモード",
   claude: "Claudeモード",
+  groq: "Groqモード",
   openrouter: "OpenRouterモード",
   local: "ローカルAIモード",
   template: "定型応答（AI節約中）",
